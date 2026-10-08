@@ -22,9 +22,10 @@ return new class extends Migration
         })->delete();
         DB::statement('DELETE FROM payments WHERE sale_id NOT IN (SELECT id FROM sales)');
 
-        // 2. Lepas FK + kolom book_id / publisher_id
+        // 2. Lepas FK + index + kolom book_id / publisher_id
         Schema::table('sale_items', function (Blueprint $t) {
             $t->dropForeign(['book_id']);
+            $t->dropIndex(['book_id']);
         });
         Schema::table('sale_items', function (Blueprint $t) {
             if (Schema::hasColumn('sale_items', 'book_id')) {
