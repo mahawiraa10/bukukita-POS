@@ -18,15 +18,14 @@ Instal tool ini dulu di komputer lu sebelum mulai:
 | Laragon | Server lokal (PHP + MySQL + Apache) | https://laragon.org/download/ |
 | Composer | Install PHP packages Laravel | https://getcomposer.org/ |
 | Node.js | Compile asset Vue.js & Tailwind | https://nodejs.org/ |
-| Git | Clone repo ini | https://git-scm.com/downloads |
+| VS Code | Code editor (opsional, disarankan) | https://code.visualstudio.com/ |
 
 ## Instalasi
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/mahawiraa10/bukukita-POS.git
-cd bukukita-POS
-```
+### 1. Buka Project di VS Code
+Buka browser ke [github.com/mahawiraa10/bukukita-POS](https://github.com/mahawiraa10/bukukita-POS), klik tombol `<> Code` hijau di pojok kanan atas, lalu clone/buka langsung via VS Code atau Source Control.
+
+**Pastikan terinstall Git** (https://git-scm.com/downloads) untuk integrasi langsung di VS Code.
 
 ### 2. Copy Environment File
 ```bash

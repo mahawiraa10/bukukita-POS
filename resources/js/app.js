@@ -1,5 +1,9 @@
 import './bootstrap';
 import { createApp } from 'vue';
-import App from './App.vue';
+import MasterHierarki from './components/MasterHierarki.vue';
 
-createApp(App).mount('#app');
+const appElement = document.getElementById('master-hierarki-app');
+if (appElement) {
+    const app = createApp(MasterHierarki);
+    app.mount('#master-hierarki-app');
+}
