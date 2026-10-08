@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('products', \App\Http\Controllers\Master\ProductController::class)->parameters(['products' => 'id']);
     Route::post('/products/bulk-inject', [\App\Http\Controllers\Master\ProductController::class, 'bulkInject']);
 
+    Route::get('/roles', [\App\Http\Controllers\Master\RoleController::class, 'index']);
     Route::apiResource('users', \App\Http\Controllers\Master\UserController::class)->parameters(['users' => 'id']);
 
     // ===== OPERASIONAL =====

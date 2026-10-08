@@ -14,6 +14,11 @@ class UserController extends Controller
         return User::with('role')->paginate($request->input('per_page', 20));
     }
 
+    public function show(string $id)
+    {
+        return User::with('role')->findOrFail($id);
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([

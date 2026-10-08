@@ -212,11 +212,39 @@
     async function processPayment() {
       if (!cart.length) { alert('Keranjang kosong'); return; }
       const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-      if (!confirm(`Proses pembayaran Rp ${total.toLocaleString('id-ID')}?`)) return;
-      // TODO: Integrase dengan API /api/transactions
-      alert('Fitur transaksi segera diintegrasikan. (Simulasi sukses)');
+      
+      // Buka modal custom
+      document.getElementById('modal-total').textContent = fmt(total);
+      document.getElementById('modal-bayar').value = total;
+      document.getElementById('modal-kembalian').textContent = fmt(0);
+      document.getElementById('payment-modal').classList.remove('hidden');
+      document.getElementById('modal-bayar').focus();
+    }
+
+    function calculateChange() {
+      const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+      const bayar = parseFloat(document.getElementById('modal-bayar').value) || 0;
+      const kembalian = bayar - total;
+      document.getElementById('modal-kembalian').textContent = fmt(kembalian >= 0 ? kembalian : 0);
+    }
+
+    function closeModal() {
+      document.getElementById('payment-modal').classList.add('hidden');
+    }
+
+    async function confirmPayment() {
+      const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+      const bayar = parseFloat(document.getElementById('modal-bayar').value) || 0;
+      if (bayar < total) {
+        alert('Uang bayar kurang dari total belanja!');
+        return;
+      }
+      
+      // TODO: Kirim data transaksi ke API /api/transactions
+      alert('Transaksi berhasil disimpan! (Simulasi)');
       cart.length = 0;
       renderCart();
+      closeModal();
     }
 
     function logout() {
@@ -232,5 +260,30 @@
     // Init
     loadProducts();
   </script>
+
+  <!-- Modal Pembayaran -->
+  <div id="payment-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-700 rounded-sm p-6 w-96 shadow-2xl">
+      <h3 class="text-lg font-bold text-slate-100 mb-4">Pembayaran</h3>
+      <div class="space-y-4">
+        <div class="flex justify-between items-center text-slate-400">
+          <span>Total Tagihan</span>
+          <span id="modal-total" class="font-mono text-emerald-400">Rp 0</span>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 uppercase">Uang Dibayar</label>
+          <input type="number" id="modal-bayar" oninput="calculateChange()" class="w-full bg-slate-800 border border-slate-700 rounded-sm px-4 py-2 text-slate-100 mono text-sm mt-1">
+        </div>
+        <div class="flex justify-between items-center text-slate-400">
+          <span>Kembalian</span>
+          <span id="modal-kembalian" class="font-mono text-emerald-400">Rp 0</span>
+        </div>
+      </div>
+      <div class="mt-6 flex gap-3">
+        <button onclick="closeModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-sm text-sm">Batal</button>
+        <button onclick="confirmPayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-sm text-sm font-bold">Bayar</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
