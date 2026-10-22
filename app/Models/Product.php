@@ -11,4 +11,9 @@ class Product extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     protected $guarded = [];
+
+    public function subkelas()
+    {
+        return $this->belongsTo(Subclass::class, 'id_subkelas', 'id_subkelas');
+    }
 }

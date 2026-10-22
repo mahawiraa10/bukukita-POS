@@ -3,5 +3,7 @@
 @section('title', 'Hierarki Departemen — BukuKita')
 
 @section('content')
-<div id="master-hierarki-app"></div>
+<div id="master-hierarki-app">
+  <master-hierarki></master-hierarki>
+</div>
 @endsection

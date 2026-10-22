@@ -15,7 +15,7 @@ class StockService
             $product = Product::where('id_produk', $product->id_produk)->lockForUpdate()->first();
             $new = $product->stok + $delta;
             if ($new < 0) {
-                throw \RuntimeException('Stok tidak mencukupi: ' . $product->nama_produk);
+                throw new \RuntimeException('Stok tidak mencukupi: ' . $product->nama_produk);
             }
             $product->stok = $new;
             $product->save();

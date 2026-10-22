@@ -95,7 +95,9 @@
 
     // User badge
     if(user.name) {
-      document.getElementById('userBadge').textContent = `${user.name} (${user.role?.name || 'Staff'})`;
+      const cleanName = user.name.replace(/\s*\([^)]*\)/g, '').trim();
+      const roleName = (user.role?.name || 'STAFF').toUpperCase();
+      document.getElementById('userBadge').textContent = `${cleanName} (${roleName})`;
     }
 
     const fmt = (n) => 'Rp ' + n.toLocaleString('id-ID');

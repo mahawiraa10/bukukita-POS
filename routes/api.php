@@ -27,9 +27,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('events', \App\Http\Controllers\Master\EventController::class)->parameters(['events' => 'id']);
     Route::post('/events/{id}/close', [\App\Http\Controllers\Master\EventController::class, 'close']);
 
+    // Histori & analisa event (supervisor + owner saja)
+    Route::middleware('permission:view_event_history')->group(function () {
+        Route::get('/event-history', [\App\Http\Controllers\Operational\EventHistoryController::class, 'index']);
+        Route::get('/event-history/{id}', [\App\Http\Controllers\Operational\EventHistoryController::class, 'show']);
+    });
+
     Route::apiResource('vendors', \App\Http\Controllers\Master\VendorController::class)->parameters(['vendors' => 'id']);
     Route::apiResource('products', \App\Http\Controllers\Master\ProductController::class)->parameters(['products' => 'id']);
-    Route::post('/products/bulk-inject', [\App\Http\Controllers\Master\ProductController::class, 'bulkInject']);
 
     Route::get('/roles', [\App\Http\Controllers\Master\RoleController::class, 'index']);
     Route::apiResource('users', \App\Http\Controllers\Master\UserController::class)->parameters(['users' => 'id']);
@@ -48,6 +53,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/product-loads', [\App\Http\Controllers\Operational\ProductLoadController::class, 'index']);
     Route::post('/product-loads', [\App\Http\Controllers\Operational\ProductLoadController::class, 'store']);
     Route::get('/stock-mutations', [\App\Http\Controllers\Operational\StockMutationController::class, 'index']);
+
+    // ===== MODUL GUDANG (semua role kecuali kasir) =====
+    Route::middleware('permission:view_warehouse')->group(function () {
+        $wh = \App\Http\Controllers\Operational\WarehouseController::class;
+        Route::get('/warehouse', [$wh, 'index']);
+        Route::get('/warehouse/{id_produk}/kartu-stok', [$wh, 'kartuStok']);
+        Route::post('/warehouse/adjust', [$wh, 'adjust']);
+    });
 
     // ===== CRM MEMBER (spec: tabel Member + Transaksi_member) =====
     Route::get('/members', [\App\Http\Controllers\Master\MemberController::class, 'index']);
@@ -73,6 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/reports/member-riwayat', [$rep, 'memberRiwayat']);
         Route::get('/reports/till-closing', [$rep, 'tillClosing']);
         Route::get('/reports/event-closing', [$rep, 'eventClosing']);
+        Route::get('/reports/event-return', [$rep, 'eventReturn']);
     });
 
     // ===== CUSTOMER (base CRM; member VIP pakai /members) =====
@@ -85,20 +99,28 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ===== PEMBELIAN / PO (spec: Pembelian ke vendor) =====
     Route::get('/purchase-orders', [\App\Http\Controllers\POController::class, 'index']);
-    Route::post('/purchase-orders', [\App\Http\Controllers\POController::class, 'store']);
     Route::get('/purchase-orders/{id}', [\App\Http\Controllers\POController::class, 'show']);
-    Route::patch('/purchase-orders/{id}/approve', [\App\Http\Controllers\POController::class, 'approve']);
-    Route::patch('/purchase-orders/{id}/receive', [\App\Http\Controllers\POController::class, 'receive']);
-    Route::patch('/purchase-orders/{id}/cancel', [\App\Http\Controllers\POController::class, 'cancel']);
+    
+    Route::middleware('permission:manage_po')->group(function () {
+        Route::post('/purchase-orders', [\App\Http\Controllers\POController::class, 'store']);
+        Route::patch('/purchase-orders/{id}/receive', [\App\Http\Controllers\POController::class, 'receive']);
+        Route::patch('/purchase-orders/{id}/cancel', [\App\Http\Controllers\POController::class, 'cancel']);
+    });
+
+    Route::middleware('permission:approve_po')->group(function () {
+        Route::patch('/purchase-orders/{id}/approve', [\App\Http\Controllers\POController::class, 'approve']);
+    });
 
     // ===== DASHBOARD =====
-    Route::get('/dashboard/kpi', [\App\Http\Controllers\DashboardController::class, 'kpi']);
-    Route::get('/dashboard/sales-trend', [\App\Http\Controllers\DashboardController::class, 'salesTrend']);
-    Route::get('/dashboard/demographics', [\App\Http\Controllers\DashboardController::class, 'demographics']);
-    Route::get('/dashboard/top-products', [\App\Http\Controllers\DashboardController::class, 'topProducts']);
-    Route::get('/dashboard/top-books', [\App\Http\Controllers\DashboardController::class, 'topProducts']); // alias lama
-    Route::get('/dashboard/low-stock', [\App\Http\Controllers\DashboardController::class, 'lowStock']);
-    Route::get('/dashboard/event-revenue', [\App\Http\Controllers\DashboardController::class, 'eventRevenue']);
+    Route::middleware('permission:view_dashboard')->group(function () {
+        Route::get('/dashboard/kpi', [\App\Http\Controllers\DashboardController::class, 'kpi']);
+        Route::get('/dashboard/sales-trend', [\App\Http\Controllers\DashboardController::class, 'salesTrend']);
+        Route::get('/dashboard/demographics', [\App\Http\Controllers\DashboardController::class, 'demographics']);
+        Route::get('/dashboard/top-products', [\App\Http\Controllers\DashboardController::class, 'topProducts']);
+        Route::get('/dashboard/top-books', [\App\Http\Controllers\DashboardController::class, 'topProducts']); // alias lama
+        Route::get('/dashboard/low-stock', [\App\Http\Controllers\DashboardController::class, 'lowStock']);
+        Route::get('/dashboard/event-revenue', [\App\Http\Controllers\DashboardController::class, 'eventRevenue']);
+    });
 
     // ===== EXPORT =====
     Route::get('/export/sales', [\App\Http\Controllers\ExportController::class, 'sales']);

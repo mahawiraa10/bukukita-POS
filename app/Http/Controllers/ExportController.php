@@ -35,14 +35,20 @@ class ExportController extends Controller
         $rows = DB::table('purchase_orders as po')
             ->leftJoin('vendors as v', 'v.id_pemasok', '=', 'po.id_pemasok')
             ->when($r->query('status'), fn ($q, $v) => $q->where('po.status', $v))
-            ->select('po.po_code', 'v.nama_pemasok', 'po.status', 'po.total_amount', 'po.expected_date', 'po.received_date')
+            ->when($r->query('tipe'), fn ($q, $v) => $q->where('po.tipe_po', $v))
+            ->select('po.po_code', 'v.nama_pemasok', 'po.tipe_po', 'po.status', 'po.total_amount', 'po.expected_date', 'po.received_date')
             ->get();
 
-        $csv = "po_code,vendor,status,total_amount,expected_date,received_date\n";
+        $csv = "po_code,tipe_po,vendor,status,total_amount,expected_date,received_date\n";
         foreach ($rows as $po) {
             $csv .= implode(',', [
-                $po->po_code, '"' . ($po->nama_pemasok ?? '-') . '"', $po->status,
-                $po->total_amount, $po->expected_date ?? '', $po->received_date ?? '',
+                $po->po_code,
+                $po->tipe_po ?? '-',
+                '"' . ($po->nama_pemasok ?? '-') . '"',
+                $po->status,
+                $po->total_amount,
+                $po->expected_date ?? '',
+                $po->received_date ?? '',
             ]) . "\n";
         }
 

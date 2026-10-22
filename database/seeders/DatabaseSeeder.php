@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             // CatalogSeeder::class,
             CustomerSeeder::class,
             // SaleSeeder::class,
+            POSimulationSeeder::class,
         ]);
     }
 }

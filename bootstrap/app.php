@@ -16,5 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias(['permission' => \App\Http\Middleware\CheckPermission::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // DomainException = aturan bisnis dilanggar (over-receive, PO status salah, dll).
+        // Tanpa ini Laravel balikin 500, padahal ini kesalahan input user -> 422.
+        $exceptions->render(function (\DomainException $e, $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+        });
     })->create();

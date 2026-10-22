@@ -28,37 +28,77 @@ class ReceivingController extends Controller
             'items.*.harga_beli' => 'required|numeric|min:0',
             'items.*.diskon_pemasok' => 'nullable|numeric|min:0|max:100',
         ]);
-        $rg = ReceivingGood::create([
-            'id_penerimaan' => IdGen::next(ReceivingGood::class, 'id_penerimaan', 'RCV'),
-            'id_pesanan' => $data['id_pesanan'],
-            'tanggal_penerimaan' => today(),
-            'nomor_faktur' => $data['nomor_faktur'],
-            'nomor_surat_jalan' => $data['nomor_surat_jalan'],
-            'id_pemasok' => $data['id_pemasok'],
-            'penerima' => $data['penerima'],
-            'status' => 'SELESAI',
-        ]);
-        foreach ($data['items'] as $it) {
-            ReceivingItem::create([
-                'id_penerimaan' => $rg->id_penerimaan,
-                'id_produk' => $it['id_produk'],
-                'jumlah_diterima' => $it['jumlah_diterima'],
-                'harga_beli' => $it['harga_beli'],
-                'diskon_pemasok' => $it['diskon_pemasok'] ?? null,
-            ]);
-            $p = Product::findOrFail($it['id_produk']);
-            $disc = $it['diskon_pemasok'] ?? 0;
-            $p->update([
-                'harga_beli' => $it['harga_beli'],
-                'harga_pokok' => round($it['harga_beli'] * (1 - $disc / 100), 2), // HPP dari invoice terbaru
-            ]);
-            StockService::record($p, 'PENERIMAAN', $it['jumlah_diterima'], 'receiving', $rg->id_penerimaan, (string) auth()->id());
+
+        // Produk dobel dalam satu surat jalan bikin received_qty ambigu.
+        $ids = array_column($data['items'], 'id_produk');
+        if (count($ids) !== count(array_unique($ids))) {
+            throw new \DomainException('Produk yang sama muncul lebih dari sekali dalam satu penerimaan.');
         }
-        if ($data['id_pesanan']) {
-            $po = PurchaseOrder::where('po_code', $data['id_pesanan'])->first();
-            $po?->update(['status' => 'received', 'received_date' => today()]);
-        }
-        return response()->json($rg->load('items'), 201);
+
+        return DB::transaction(function () use ($data) {
+            $po = null;
+            if (!empty($data['id_pesanan'])) {
+                $po = PurchaseOrder::with('items')->where('po_code', $data['id_pesanan'])->firstOrFail();
+
+                if (!in_array($po->status, ['approved', 'partial'])) {
+                    throw new \DomainException("PO {$po->po_code} berstatus {$po->status}, tidak bisa diterima.");
+                }
+            }
+
+            $rg = ReceivingGood::create([
+                'id_penerimaan' => IdGen::next(ReceivingGood::class, 'id_penerimaan', 'RCV'),
+                'id_pesanan' => $data['id_pesanan'] ?? null,
+                'tanggal_penerimaan' => today(),
+                'nomor_faktur' => $data['nomor_faktur'],
+                'nomor_surat_jalan' => $data['nomor_surat_jalan'],
+                'id_pemasok' => $data['id_pemasok'],
+                'penerima' => $data['penerima'],
+                'status' => 'SELESAI',
+            ]);
+
+            foreach ($data['items'] as $it) {
+                $qty = (int) $it['jumlah_diterima'];
+
+                // Kalau terikat PO: update received_qty (partial-aware), bukan paksa 'received'.
+                if ($po) {
+                    $poItem = $po->items->firstWhere('id_produk', $it['id_produk']);
+                    if (!$poItem) {
+                        throw new \DomainException("Produk {$it['id_produk']} tidak ada di PO {$po->po_code}.");
+                    }
+                    $newTotal = (int) $poItem->received_qty + $qty;
+                    if ($newTotal > (int) $poItem->qty) {
+                        throw new \DomainException("Qty diterima ({$newTotal}) melebihi pesanan {$poItem->qty} untuk produk {$it['id_produk']}.");
+                    }
+                    $poItem->update(['received_qty' => $newTotal]);
+                }
+
+                ReceivingItem::create([
+                    'id_penerimaan' => $rg->id_penerimaan,
+                    'id_produk' => $it['id_produk'],
+                    'jumlah_diterima' => $qty,
+                    'harga_beli' => $it['harga_beli'],
+                    'diskon_pemasok' => $it['diskon_pemasok'] ?? null,
+                ]);
+
+                $p = Product::findOrFail($it['id_produk']);
+                $disc = $it['diskon_pemasok'] ?? 0;
+                $p->update([
+                    'harga_beli' => $it['harga_beli'],
+                    'harga_pokok' => round($it['harga_beli'] * (1 - $disc / 100), 2), // HPP dari invoice terbaru
+                ]);
+                StockService::record($p, 'PENERIMAAN', $qty, 'receiving', $rg->id_penerimaan, (string) auth()->id());
+            }
+
+            if ($po) {
+                $allDone = $po->items()->whereColumn('received_qty', '<', 'qty')->doesntExist();
+                $po->update([
+                    'status' => $allDone ? 'received' : 'partial',
+                    'received_date' => today(),
+                ]);
+            }
+
+            return response()->json($rg->load('items'), 201);
+        });
     }
 
     public function index(Request $request)

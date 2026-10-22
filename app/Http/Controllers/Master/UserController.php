@@ -37,6 +37,13 @@ class UserController extends Controller
     public function update(Request $request, string $id)
     {
         $u = User::findOrFail($id);
+        
+        // Proteksi Role Owner: Gabisa diedit kecuali oleh owner itu sendiri
+        $authUser = auth()->user();
+        if ($u->role_id == 1 && $authUser->role_id != 1) {
+            return response()->json(['message' => 'Unauthorized: Role owner hanya bisa dikelola oleh owner'], 403);
+        }
+
         $data = $request->validate([
             'name' => 'sometimes|string|max:150',
             'email' => 'sometimes|email|unique:users,email,' . $id,
@@ -53,7 +60,14 @@ class UserController extends Controller
 
     public function destroy(string $id)
     {
-        User::findOrFail($id)->update(['is_active' => false]);
-        return response()->json(['message' => 'akun dinonaktifkan, histori tetap tersimpan (Function 11)']);
+        $u = User::findOrFail($id);
+        
+        // Proteksi Role Owner
+        if ($u->role_id == 1) {
+             return response()->json(['message' => 'Unauthorized: Role owner tidak bisa dihapus'], 403);
+        }
+        
+        $u->delete();
+        return response()->json(['message' => 'akun berhasil dihapus secara permanen']);
     }
 }

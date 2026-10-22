@@ -9,11 +9,12 @@ class SaleItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['sale_id', 'id_produk', 'qty', 'price', 'subtotal', 'diskon_produk'];
+    protected $fillable = ['sale_id', 'id_produk', 'qty', 'price', 'hpp_snapshot', 'subtotal', 'diskon_produk'];
 
     protected $casts = [
         'qty' => 'integer',
         'price' => 'decimal:2',
+        'hpp_snapshot' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'diskon_produk' => 'decimal:2',
     ];

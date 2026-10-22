@@ -53,35 +53,9 @@ class EventController extends Controller
         if ($e->status_acara === 'NONAKTIF') {
             return response()->json(['message' => 'Event sudah ditutup (frozen)'], 422);
         }
-        $loads = \App\Models\ProductLoad::where('id_acara', $id)->where('status_load', 'SELESAI')->get();
-        $bon = [];
-        foreach ($loads->groupBy('id_produk') as $idp => $rows) {
-            $injected = $rows->sum('jumlah_produk');
-            $sold = \App\Models\Sale::where('sales.id_acara', $id)
-                ->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')
-                ->where('sale_items.id_produk', $idp)
-                ->where('sales.payment_status', 'paid')
-                ->sum('sale_items.qty');
-            $sisa = max(0, $injected - $sold);
-            if ($sisa > 0) {
-                $bon[] = [
-                    'id_produk' => $idp,
-                    'nama_produk' => optional(\App\Models\Product::find($idp))->nama_produk,
-                    'jumlah_sisa_produk' => $sisa,
-                ];
-                \App\Models\EventClosing::create([
-                    'id_penutupan_acara' => IdGen::next(\App\Models\EventClosing::class, 'id_penutupan_acara', 'ECL'),
-                    'id_acara' => $id,
-                    'id_produk' => $idp,
-                    'tanggal_selesai' => now()->toDateString(),
-                    'status_acara' => 'SELESAI',
-                    'jumlah_sisa_produk' => $sisa,
-                    'nomor_bon_pengembalian' => 'BON-' . strtoupper($id) . '-' . now()->format('ymd'),
-                    'tanggal_pengembalian' => now()->toDateString(),
-                ]);
-            }
-        }
-        $e->update(['status_acara' => 'NONAKTIF']);
+
+        $bon = app(\App\Services\EventClosingService::class)->close($e, (string) auth()->id());
+
         return response()->json(['message' => 'Event frozen', 'bon_return' => $bon]);
     }
 }

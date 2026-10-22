@@ -2,9 +2,24 @@
 @section('title', 'Dashboard — BukuKita')
 @section('content')
 <div class="space-y-6">
-  <div>
-    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
-    <p class="text-xs text-slate-500">Ringkasan operasional hari ini.</p>
+  <!-- Header & Clean Date Range Bar -->
+  <div class="bg-white border border-slate-200 rounded-sm p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 tracking-tight">Dashboard Utama</h1>
+      <p class="text-xs text-slate-500 mt-0.5">Analisis tren penjualan dan performa operasional toko.</p>
+    </div>
+
+    <!-- Simplified Controls -->
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Date Range Inputs -->
+      <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-sm px-3 py-1.5">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Dari:</span>
+        <input type="date" id="dateFrom" class="text-xs font-mono text-slate-700 bg-transparent border-0 focus:ring-0 p-0">
+        <span class="text-slate-300 font-bold">/</span>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sampai:</span>
+        <input type="date" id="dateTo" class="text-xs font-mono text-slate-700 bg-transparent border-0 focus:ring-0 p-0">
+      </div>
+    </div>
   </div>
 
   <!-- KPI Cards -->
@@ -20,13 +35,7 @@
   <!-- Charts Row -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
     <div class="lg:col-span-2 bg-white border border-slate-200 rounded-sm p-5">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-bold text-slate-900 tracking-tight">Tren Penjualan <span class="text-slate-400 font-mono text-xs">(30 hari)</span></h2>
-        <div class="flex gap-1 text-[10px] font-semibold uppercase tracking-wider">
-          <button data-period="daily" class="px-2.5 py-1 rounded-sm bg-emerald-500 text-white">Harian</button>
-          <button data-period="monthly" class="px-2.5 py-1 rounded-sm bg-white border border-slate-200 text-slate-500">Bulanan</button>
-        </div>
-      </div>
+      <h2 class="text-sm font-bold text-slate-900 tracking-tight mb-4">Tren Penjualan</h2>
       <canvas id="trendChart" height="110"></canvas>
     </div>
 
@@ -34,12 +43,6 @@
       <h2 class="text-sm font-bold text-slate-900 tracking-tight mb-4">Top 5 Produk</h2>
       <canvas id="topChart" height="240"></canvas>
     </div>
-  </div>
-
-  <!-- Event Comparison -->
-  <div class="bg-white border border-slate-200 rounded-sm p-5">
-    <h2 class="text-sm font-bold text-slate-900 tracking-tight mb-4">Perbandingan Omzet Antar Event <span class="text-slate-400 font-mono text-xs">(semua event)</span></h2>
-    <canvas id="eventChart" height="100"></canvas>
   </div>
 
   <!-- Low Stock -->
@@ -74,36 +77,63 @@ const rp = n => n >= 1e6 ? (n/1e6).toFixed(1).replace('.0','') + ' jt' : n.toLoc
 
 async function api(path){ const r = await fetch(path, { headers: H }); if(!r.ok) throw new Error(path + ' -> ' + r.status); return r.json(); }
 
-// KPI
-api('/api/dashboard/kpi').then(d => {
+async function loadKPI(from = '', to = '') {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const d = await api(`/api/dashboard/kpi?${params}`);
   document.querySelector('[data-kpi=revenue]').textContent = rp(d.totalRevenue);
   document.querySelector('[data-kpi=orders]').textContent = d.totalOrders;
   document.querySelector('[data-kpi=avg]').textContent = rp(d.avgOrder);
   document.querySelector('[data-kpi=items]').textContent = d.totalItems;
-}).catch(e => console.error('kpi', e));
+}
+let trendChart = null;
+const now = new Date();
+const toStr = now.toISOString().split('T')[0];
+const fromStr = new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
+document.getElementById('dateFrom').value = fromStr;
+document.getElementById('dateTo').value = toStr;
 
-// Trend
-let trendChart;
-async function loadTrend(period = 'daily') {
-  const d = await api(`/api/dashboard/sales-trend?period=${period}`);
-  const labels = d.map(x => x.label), data = d.map(x => x.revenue);
+async function reloadAll() {
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+  
+  loadKPI(from, to);
+  loadTrend(from, to);
+}
+
+async function loadTrend(from = '', to = '') {
+  const params = new URLSearchParams({ period: 'daily' });
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const d = await api(`/api/dashboard/sales-trend?${params}`);
+  
+  // Format labels dengan tanggal
+  const labels = d.map(x => {
+    const dt = x.label;
+    const date = new Date(dt);
+    const day = date.getDate();
+    const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    return `${day} ${months[date.getMonth()]}`;
+  });
+  const data = d.map(x => x.revenue);
   if (trendChart) trendChart.destroy();
   trendChart = new Chart(document.getElementById('trendChart'), {
     type: 'line',
     data: { labels, datasets: [{ label: 'Omzet', data, borderColor: '#10b981', borderWidth: 2,
-      backgroundColor: 'rgba(16,185,129,.08)', fill: true, tension: .3, pointRadius: 0, pointHoverRadius: 4 }] },
+      backgroundColor: 'rgba(16,185,129,.08)', fill: true, tension: .3, pointRadius: 2 }] },
     options: { plugins: { legend: { display: false },
       tooltip: { callbacks: { label: ctx => 'Rp ' + Number(ctx.parsed.y).toLocaleString('id-ID') } } },
       scales: { x: { grid: { display: false }, ticks: { font: { size: 10, family: 'JetBrains Mono' }, color: '#94a3b8' } },
         y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, family: 'JetBrains Mono' }, color: '#94a3b8', callback: v => rp(v) } } } }
   });
 }
-document.querySelectorAll('[data-period]').forEach(btn => btn.onclick = () => {
-  document.querySelectorAll('[data-period]').forEach(b => b.className = 'px-2.5 py-1 rounded-sm bg-white border border-slate-200 text-slate-500');
-  btn.className = 'px-2.5 py-1 rounded-sm bg-emerald-500 text-white';
-  loadTrend(btn.dataset.period);
-});
-loadTrend();
+
+document.getElementById('dateFrom').onchange = reloadAll;
+document.getElementById('dateTo').onchange = reloadAll;
+
+loadKPI(fromStr, toStr);
+loadTrend(fromStr, toStr);
 
 // Top products
 api('/api/dashboard/top-products?limit=5').then(d => {
@@ -116,19 +146,6 @@ api('/api/dashboard/top-products?limit=5').then(d => {
         y: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#0f172a' } } } }
   });
 }).catch(e => console.error('top', e));
-
-// Event revenue comparison
-api('/api/dashboard/event-revenue').then(d => {
-  new Chart(document.getElementById('eventChart'), {
-    type: 'bar',
-    data: { labels: d.map(x => x.nama_acara), datasets: [{ label: 'Omzet', data: d.map(x => Number(x.revenue)),
-      backgroundColor: d.map(x => x.status_acara === 'AKTIF' ? '#10b981' : '#94a3b8'), borderRadius: 2, barThickness: 24 }] },
-    options: { plugins: { legend: { display: false },
-      tooltip: { callbacks: { label: ctx => 'Rp ' + Number(ctx.parsed.y).toLocaleString('id-ID') } } },
-      scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#0f172a' } },
-        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, family: 'JetBrains Mono' }, color: '#94a3b8', callback: v => rp(v) } } } }
-  });
-}).catch(e => console.error('event', e));
 
 // Low stock
 api('/api/dashboard/low-stock').then(d => {

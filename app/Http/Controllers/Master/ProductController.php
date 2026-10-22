@@ -12,13 +12,29 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        return Product::query()
+        $query = Product::query()
             ->when($request->search, fn($q, $s) => $q->where(fn($w) => $w
-                ->where('nama_produk', 'like', "%$s%")->orWhere('sku', 'like', "%$s%")->orWhere('isbn', 'like', "%$s%")))
-            ->when($request->id_departemen, fn($q, $d) => $q->where('id_departemen', $d))
-            ->when($request->id_subkelas, fn($q, $s) => $q->where('id_subkelas', $s))
-            ->when($request->low_stock, fn($q) => $q->whereColumn('stok', '<=', 'min_stock'))
-            ->paginate($request->input('per_page', 20));
+                ->where('nama_produk', 'like', "%$s%")->orWhere('sku', 'like', "%$s%")->orWhere('isbn', 'like', "%$s%")));
+        
+        // Filter berdasarkan kelas
+        if ($request->id_kelas) {
+            $query->where('id_subkelas', function($sub) use ($request) {
+                $sub->where('id_kelas', $request->id_kelas);
+            });
+        }
+        
+        // Filter berdasarkan divisi (melalui kelas > departemen)
+        if ($request->id_divisi) {
+            $query->whereHas('subkelas.kelas', function($q) use ($request) {
+                $q->whereHas('department', function($q) use ($request) {
+                    $q->where('id_divisi', $request->id_divisi);
+                });
+            });
+        }
+        
+        $query->when($request->low_stock, fn($q) => $q->whereColumn('stok', '<=', 'min_stock'));
+        
+        return $query->paginate($request->input('per_page', 20));
     }
 
     public function show(string $id)

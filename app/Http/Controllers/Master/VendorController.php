@@ -20,13 +20,20 @@ class VendorController extends Controller
     {
         $data = $request->validate([
             'nama_pemasok' => 'required|string|max:150',
-            'alamat_lengkap' => 'required|string|max:255',
-            'nomor_telepon_pemasok' => 'required|string|max:20',
+            'alamat_lengkap' => 'nullable|string|max:255',
+            'nomor_telepon_pemasok' => 'nullable|string|max:20',
             'email_pemasok' => 'nullable|email|unique:vendors,email_pemasok',
             'diskon_pemasok' => 'nullable|numeric|min:0|max:100',
             'nomor_rekening' => 'nullable|string|max:30',
-            'id_divisi' => 'required|exists:divisions,id_divisi',
+            'id_divisi' => 'nullable|exists:divisions,id_divisi',
         ]);
+        
+        if (empty($data['alamat_lengkap'])) $data['alamat_lengkap'] = '-';
+        if (empty($data['id_divisi'])) {
+            $div = \App\Models\Division::first();
+            $data['id_divisi'] = $div ? $div->id_divisi : 'DIV-00001';
+        }
+
         $data['id_pemasok'] = IdGen::next(Vendor::class, 'id_pemasok', 'VDR');
         return response()->json(Vendor::create($data), 201);
     }
@@ -38,6 +45,7 @@ class VendorController extends Controller
             'nama_pemasok' => 'sometimes|string|max:150',
             'email_pemasok' => 'nullable|email|unique:vendors,email_pemasok,' . $id . ',id_pemasok',
             'diskon_pemasok' => 'nullable|numeric',
+            'id_divisi' => 'sometimes|nullable|exists:divisions,id_divisi',
             'is_active' => 'sometimes|boolean', // nonaktifkan, bukan hapus (Function 3)
         ]));
         return response()->json($v);

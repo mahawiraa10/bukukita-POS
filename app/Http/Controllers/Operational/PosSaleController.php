@@ -79,10 +79,10 @@ class PosSaleController extends Controller
             foreach ($data['items'] as $it) {
                 $p = Product::where('id_produk', $it['id_produk'])->where('is_active', 1)->first();
                 if (!$p) {
-                    throw \RuntimeException("Produk {$it['id_produk']} tidak ditemukan/nonaktif");
+                    throw new \RuntimeException("Produk {$it['id_produk']} tidak ditemukan/nonaktif");
                 }
                 if ($p->stok < $it['qty']) {
-                    throw \RuntimeException("Stok '{$p->nama_produk}' tidak cukup (sisa: {$p->stok})");
+                    throw new \RuntimeException("Stok '{$p->nama_produk}' tidak cukup (sisa: {$p->stok})");
                 }
                 $harga = (float) $p->harga_jual;
                 $bruto = $harga * $it['qty'];
@@ -106,7 +106,7 @@ class PosSaleController extends Controller
             $kembali = 0;
             if ($data['metode_bayar'] === 'TUNAI') {
                 if (empty($data['uang_diterima']) || $data['uang_diterima'] < $final) {
-                    throw \RuntimeException('Uang diterima kurang dari total bayar');
+                    throw new \RuntimeException('Uang diterima kurang dari total bayar');
                 }
                 $kembali = round($data['uang_diterima'] - $final, 2);
             }
@@ -135,6 +135,7 @@ class PosSaleController extends Controller
                     'id_produk' => $li['produk']->id_produk,
                     'qty' => $li['qty'],
                     'price' => (float) $li['produk']->harga_jual,
+                    'hpp_snapshot' => (float) $li['produk']->harga_pokok, // kunci modal saat transaksi
                     'subtotal' => $li['bruto'] - $li['diskon'],
                     'diskon_produk' => $li['diskon'],
                 ]);

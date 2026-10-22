@@ -15,6 +15,7 @@ return new class extends Migration
             $table->string('id_divisi', 10)->primary();
             $table->string('nama_divisi', 100);
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('departments', function (Blueprint $table) {
@@ -23,6 +24,7 @@ return new class extends Migration
             $table->string('id_divisi', 10);
             $table->foreign('id_divisi')->references('id_divisi')->on('divisions')->restrictOnDelete();
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('classes', function (Blueprint $table) {
@@ -31,6 +33,7 @@ return new class extends Migration
             $table->string('id_departemen', 10);
             $table->foreign('id_departemen')->references('id_departemen')->on('departments')->restrictOnDelete();
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('subclasses', function (Blueprint $table) {
@@ -39,6 +42,7 @@ return new class extends Migration
             $table->string('id_kelas', 10);
             $table->foreign('id_kelas')->references('id_kelas')->on('classes')->restrictOnDelete();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

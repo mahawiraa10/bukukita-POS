@@ -27,6 +27,7 @@ class ReportController extends Controller
             'vendor-receiving', 'internal-receiving', 'vendor-return',
             'receipts-recap', 'receipts-detail', 'omzet-produk', 'omzet-departemen',
             'omzet-kasir', 'member-baru', 'member-riwayat', 'till-closing', 'event-closing',
+            'event-return',
         ]]);
     }
 
@@ -142,10 +143,10 @@ class ReportController extends Controller
             ->join('products', 'products.id_produk', '=', 'sale_items.id_produk')
             ->whereBetween(DB::raw('DATE(sales.sale_date)'), [$dari, $sampai])
             ->where('sales.payment_status', 'paid')
-            ->groupBy('sale_items.id_produk', 'products.nama_produk', 'products.harga_pokok')
+            ->groupBy('sale_items.id_produk', 'products.nama_produk')
             ->selectRaw('sale_items.id_produk, products.nama_produk, products.harga_pokok,
                 SUM(sale_items.qty) qty, SUM(sale_items.subtotal) omzet,
-                SUM(sale_items.subtotal - products.harga_pokok * sale_items.qty) margin')
+                SUM(sale_items.subtotal - COALESCE(sale_items.hpp_snapshot, products.harga_pokok) * sale_items.qty) margin')
             ->orderByDesc('omzet')->get();
         $rows = $rowsRaw->map(fn ($x) => [
             $x->id_produk, $x->nama_produk, (string) $x->qty,
@@ -338,6 +339,29 @@ class ReportController extends Controller
         ];
         return $this->respond($r, 'PENUTUPAN ACARA / BON PENGEMBALIAN', $dari, $sampai, $rekap,
             ['No Penutupan', 'ID Acara', 'Nama Acara', 'ID Produk', 'Qty Sisa', 'No Bon', 'Tgl Bon', 'Tgl Selesai', 'Status'], $rows);
+    }
+
+    // ===== 13. Pengembalian Barang Event (Sisa Konsinyasi) ke Vendor =====
+    public function eventReturn(Request $r)
+    {
+        [$dari, $sampai] = $this->period($r);
+        $q = DB::table('vendor_returns')
+            ->leftJoin('vendors', 'vendors.id_pemasok', '=', 'vendor_returns.id_pemasok')
+            ->leftJoin('events', 'events.id_acara', '=', 'vendor_returns.id_acara')
+            ->whereNotNull('vendor_returns.id_acara')
+            ->whereBetween('vendor_returns.tanggal_pengembalian', [$dari, $sampai]);
+        $rows = $q->get()->map(fn ($x) => [
+            $x->id_pengembalian, $x->id_acara ?? '-', $x->nama_acara ?? '-', $x->id_pemasok,
+            $x->nama_pemasok ?? '-', $x->id_produk, $x->nama_produk, $x->alasan,
+            (string) $x->jumlah_dikembalikan, (string) $x->tanggal_pengembalian,
+        ]);
+        $rekap = [
+            ['Total Retur Event', (string) $q->count()],
+            ['Total Qty Dikembalikan', (string) $q->clone()->sum('vendor_returns.jumlah_dikembalikan')],
+        ];
+        return $this->respond($r, 'PENGEMBALIAN SISA EVENT KE PEMASOK', $dari, $sampai, $rekap,
+            ['No Retur', 'ID Acara', 'Nama Acara', 'ID Pemasok', 'Nama Pemasok', 'ID Produk', 'Nama Produk', 'Alasan', 'Qty', 'Tanggal'],
+            $rows);
     }
 
     // ===== helper =====

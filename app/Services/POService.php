@@ -11,14 +11,15 @@ use Illuminate\Support\Facades\DB;
 
 class POService
 {
-    public function createPo(array $data): PurchaseOrder
+    public function createPo(array $data, ?int $userId = null): PurchaseOrder
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $userId) {
             $po = PurchaseOrder::create([
                 'po_code'       => $this->generatePOCode(),
                 'id_pemasok'    => $data['id_pemasok'],
                 'id_acara'      => $data['id_acara'] ?? null,
-                'user_id'       => auth()->id(),
+                'tipe_po'       => $data['tipe_po'] ?? 'reguler',
+                'user_id'       => $userId ?? auth()->id(),
                 'status'        => POStatus::DRAFT->value,
                 'total_amount'  => 0,
                 'notes'         => $data['notes'] ?? null,
@@ -27,6 +28,27 @@ class POService
 
             $total = 0;
             foreach ($data['items'] as $item) {
+                // Jika item membawa payload produk baru, lahirkan produk dulu (traceability).
+                if (empty($item['id_produk']) && !empty($item['new_product'])) {
+                    $np = $item['new_product'];
+                    $idProduk = IdGen::next(Product::class, 'id_produk', 'PRD');
+                    $product = Product::create([
+                        'id_produk'       => $idProduk,
+                        'sku'             => $np['sku'] ?? ('SKU-' . $idProduk),
+                        'id_pemasok'      => $data['id_pemasok'],
+                        'id_departemen'   => $np['id_departemen'],
+                        'id_subkelas'     => $np['id_subkelas'] ?? null,
+                        'nama_produk'     => $np['nama_produk'],
+                        'penerbit'        => $np['penerbit'] ?? null,
+                        'harga_jual'      => $np['harga_jual'] ?? 0,
+                        'harga_beli'      => $item['unit_price'],
+                        'harga_pokok'     => $item['unit_price'],
+                        'stok'            => 0,
+                        'is_active'       => true,
+                    ]);
+                    $item['id_produk'] = $idProduk;
+                }
+
                 $subtotal = $item['qty'] * $item['unit_price'];
                 $total += $subtotal;
                 PoItem::create([
@@ -67,26 +89,38 @@ class POService
         return DB::transaction(function () use ($id, $items) {
             $po = PurchaseOrder::with('items')->findOrFail($id);
 
-            if ($po->status !== POStatus::APPROVED->value) {
-                throw new \DomainException('PO harus di-approve dulu sebelum receive.');
+            if (!in_array($po->status, [POStatus::APPROVED->value, 'partial'])) {
+                throw new \DomainException('PO harus status approved atau partial sebelum receive.');
             }
+
+            $allCompleted = true;
 
             foreach ($items as $row) {
                 $item = $po->items->firstWhere('id', $row['id']);
                 if (!$item) {
                     throw new \DomainException('Item PO tidak ditemukan.');
                 }
-                if ($row['received_qty'] > $item->qty) {
-                    throw new \DomainException("Qty diterima melebihi pesanan (maks: {$item->qty}).");
+                
+                $newReceivedTotal = $item->received_qty + $row['received_qty'];
+
+                if ($newReceivedTotal > $item->qty) {
+                    throw new \DomainException("Total qty diterima ({$newReceivedTotal}) melebihi pesanan (maks: {$item->qty}).");
                 }
 
-                $item->update(['received_qty' => $row['received_qty']]);
+                $item->update(['received_qty' => $newReceivedTotal]);
+                
                 $product = Product::findOrFail($item->id_produk);
                 StockService::record($product, 'PENERIMAAN', (int) $row['received_qty'], 'purchase_order', $po->po_code, (string) auth()->id());
+
+                if ($newReceivedTotal < $item->qty) {
+                    $allCompleted = false;
+                }
             }
 
+            $newStatus = $allCompleted ? POStatus::RECEIVED->value : 'partial';
+
             $po->update([
-                'status'        => POStatus::RECEIVED->value,
+                'status'        => $newStatus,
                 'received_date' => now()->toDateString(),
             ]);
 
