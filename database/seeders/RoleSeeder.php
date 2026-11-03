@@ -33,6 +33,7 @@ class RoleSeeder extends Seeder
             ['name' => 'view_reports',     'description' => 'Akses laporan operasional'],
             ['name' => 'view_warehouse',   'description' => 'Akses modul gudang & kartu stok'],
             ['name' => 'view_event_history', 'description' => 'Lihat histori & analisa event (omzet, profit)'],
+            ['name' => 'manage_company',   'description' => 'Kelola profil perusahaan / company setup'],
         ];
 
         foreach ($permissions as $permission) {
@@ -46,7 +47,7 @@ class RoleSeeder extends Seeder
         // Supervisor: Dashboard, approve PO, view reports, manage customers, warehouse
         $supervisor = Role::where('name', 'supervisor')->first();
         $supervisor->permissions()->sync(
-            Permission::whereIn('name', ['view_dashboard', 'approve_po', 'manage_customers', 'view_reports', 'view_warehouse', 'view_event_history'])->get()
+            Permission::whereIn('name', ['view_dashboard', 'approve_po', 'manage_customers', 'view_reports', 'view_warehouse', 'view_event_history', 'manage_company', 'manage_users'])->get()
         );
 
         // Admin: Input barang, vendor, PO/receiving (dari vendor/gudang), kelola customer, warehouse

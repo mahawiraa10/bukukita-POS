@@ -18,6 +18,7 @@ class CustomerSeeder extends Seeder
             $last = $lastNames[array_rand($lastNames)];
 
             Customer::create([
+                'id_anggota' => 'MBR-' . str_pad((string) $i, 5, '0', STR_PAD_LEFT),
                 'name' => "{$first} {$last}",
                 'phone' => '08' . rand(1000000000, 9999999999),
                 'email' => strtolower($first) . rand(1, 9999) . '@example.com',

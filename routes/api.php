@@ -11,7 +11,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ===== MASTER DATA =====
     Route::get('/company', [\App\Http\Controllers\Master\CompanyController::class, 'show']);
-    Route::put('/company', [\App\Http\Controllers\Master\CompanyController::class, 'update']);
+    Route::put('/company', [\App\Http\Controllers\Master\CompanyController::class, 'update'])
+        ->middleware('permission:manage_company');
 
     // Hierarki 4 level: divisions|departments|classes|subclasses
     foreach (['divisions', 'departments', 'classes', 'subclasses'] as $key) {
@@ -35,9 +36,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('vendors', \App\Http\Controllers\Master\VendorController::class)->parameters(['vendors' => 'id']);
     Route::apiResource('products', \App\Http\Controllers\Master\ProductController::class)->parameters(['products' => 'id']);
+    Route::post('/products/bulk', [\App\Http\Controllers\Master\ProductController::class, 'bulk']); // 8.1 bulk inject
 
-    Route::get('/roles', [\App\Http\Controllers\Master\RoleController::class, 'index']);
-    Route::apiResource('users', \App\Http\Controllers\Master\UserController::class)->parameters(['users' => 'id']);
+    Route::middleware('permission:manage_users')->group(function () {
+        Route::get('/roles', [\App\Http\Controllers\Master\RoleController::class, 'index']);
+        Route::apiResource('users', \App\Http\Controllers\Master\UserController::class)->parameters(['users' => 'id']);
+    });
 
     // ===== OPERASIONAL =====
     Route::get('/shifts/current', [\App\Http\Controllers\Operational\ShiftController::class, 'current']);
@@ -45,7 +49,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shifts/close', [\App\Http\Controllers\Operational\ShiftController::class, 'close']);
 
     Route::post('/pos/sales', [\App\Http\Controllers\Operational\PosSaleController::class, 'store']);
-    Route::post('/refunds', [\App\Http\Controllers\Operational\RefundController::class, 'store']);
+    Route::post('/refunds', [\App\Http\Controllers\Operational\RefundController::class, 'store'])
+        ->middleware('permission:manage_refund'); // kasir/admin tanpa manage_refund -> 403
     Route::get('/receiving', [\App\Http\Controllers\Operational\ReceivingController::class, 'index']);
     Route::post('/receiving', [\App\Http\Controllers\Operational\ReceivingController::class, 'store']);
     Route::get('/vendor-returns', [\App\Http\Controllers\Operational\VendorReturnController::class, 'index']);
@@ -123,6 +128,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ===== EXPORT =====
-    Route::get('/export/sales', [\App\Http\Controllers\ExportController::class, 'sales']);
-    Route::get('/export/purchase-orders', [\App\Http\Controllers\ExportController::class, 'purchaseOrders']);
+    // PO export = manage_po (admin/owner). Sales export = view_reports (supervisor/owner).
+    Route::get('/export/sales', [\App\Http\Controllers\ExportController::class, 'sales'])
+        ->middleware('permission:view_reports');
+    Route::get('/export/purchase-orders', [\App\Http\Controllers\ExportController::class, 'purchaseOrders'])
+        ->middleware('permission:manage_po');
 });

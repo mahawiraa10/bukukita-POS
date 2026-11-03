@@ -39,8 +39,12 @@ class ShiftController extends Controller
         if ($dup) {
             abort(422, 'Kasir sudah punya sesi aktif hari ini (1 sesi/hari)');
         }
+        // Batas 2 shift per hari operasional (Shift 1 & Shift 2).
+        if (CashierShift::whereDate('waktu_buka', today())->count() >= 2) {
+            abort(422, 'Batas 2 shift per hari sudah tercapai (Shift 1 & Shift 2). Tutup kasir dulu.');
+        }
         $s = CashierShift::create([
-            'id_sesi_kasir' => IdGen::next(CashierShift::class, 'id_sesi_kasir', 'SFT'),
+            'id_sesi_kasir' => IdGen::next(CashierShift::class, 'id_sesi_kasir', 'SFT', 2), // SFT-01, SFT-02
             'id_pengguna' => (string) auth()->id(),
             'nomor_kasir' => $data['nomor_kasir'],
             'waktu_buka' => now(), // jam asli -> audit lateness
@@ -66,10 +70,10 @@ class ShiftController extends Controller
             ->sum('refunds.jumlah_pengembalian'); // refund tunai hari ini di shift ini
         $expected = $s->modal_awal + $salesCash - $refCash;
         $selisih = round($data['uang_fisik'] - $expected, 2);
-        foreach (['TUNAI', 'DEBIT', 'KARTU KREDIT'] as $m) {
+        foreach (['TUNAI', 'DEBIT'] as $m) {
             $tot = Sale::where('id_sesi_kasir', $s->id_sesi_kasir)
                 ->where('payment_status', 'paid')
-                ->where('payment_method', $m === 'TUNAI' ? 'cash' : ($m === 'DEBIT' ? 'qris' : 'transfer'))
+                ->where('payment_method', $m === 'TUNAI' ? 'cash' : 'debit')
                 ->sum('final_amount');
             if ($tot > 0 || $m === 'TUNAI') {
                 DailyClosing::create([

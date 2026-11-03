@@ -16,7 +16,7 @@
 </style>
 </head>
 <body>
-  <h1>{{ $company->nama_perusahaan ?? 'NOIRISH BOOKS' }}</h1>
+  <h1>{{ $company->nama_perusahaan ?? 'BukuKita' }}</h1>
   <div class="meta">
     {{ $company->alamat_perusahaan ?? '' }}<br>
     Telp: {{ $company->nomor_telepon ?? '-' }}

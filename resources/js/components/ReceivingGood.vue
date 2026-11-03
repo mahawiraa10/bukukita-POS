@@ -23,7 +23,7 @@
         </div>
         <div>
           <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">PILIH VENDOR</label>
-          <select v-model="form.id_pemasok" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] focus:border-[#10b981] font-mono">
+          <select v-model="form.id_pemasok" :disabled="!!form.id_pesanan" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] focus:border-[#10b981] font-mono disabled:opacity-60 disabled:cursor-not-allowed">
             <option value="" disabled>-- Pilih Vendor --</option>
             <option v-for="v in vendors" :key="v.id_pemasok" :value="v.id_pemasok">{{ v.nama_pemasok }}</option>
           </select>
@@ -64,7 +64,7 @@
             <td class="p-3">
               <select v-model="item.id_produk" @change="updateProduk(item)" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm font-mono">
                 <option value="" disabled>-- Pilih Produk --</option>
-                <option v-for="p in products" :key="p.id_produk" :value="p.id_produk">{{ p.nama_produk }} (Stok: {{ p.stok }})</option>
+                <option v-for="p in selectableProducts" :key="p.id_produk" :value="p.id_produk">{{ p.nama_produk }} (Stok: {{ p.stok }})</option>
               </select>
             </td>
             <td class="p-3">
@@ -76,7 +76,7 @@
             <td class="p-3">
               <input v-model.number="item.diskon_pemasok" type="number" min="0" max="100" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-1.5 text-sm font-mono" />
             </td>
-            <td class="p-3 font-medium font-mono">Rp {{ (item.jumlah_diterima * item.harga_beli).toLocaleString() }}</td>
+            <td class="p-3 font-medium font-mono">Rp {{ (item.jumlah_diterima * item.harga_beli * (1 - (item.diskon_pemasok || 0) / 100)).toLocaleString() }}</td>
             <td class="p-3 text-right">
               <button @click="removeItemRow(index)" class="text-[#ef4444] hover:underline text-xs font-semibold">HAPUS</button>
             </td>
@@ -123,6 +123,21 @@ export default {
   mounted() {
     this.fetchData();
   },
+  computed: {
+    // Produk yang boleh dipilih: ikut PO kalau ada PO, ikut vendor kalau direct.
+    selectableProducts() {
+      if (this.form.id_pesanan) {
+        const ids = this.poItems.map(pi => pi.id_produk);
+        return this.products.filter(p => ids.includes(p.id_produk));
+      }
+      if (!this.form.id_pemasok) return [];
+      return this.products.filter(p => p.id_pemasok === this.form.id_pemasok);
+    },
+    vendorDiskon() {
+      const v = this.vendors.find(x => x.id_pemasok === this.form.id_pemasok);
+      return v ? Number(v.diskon_pemasok || 0) : 0;
+    },
+  },
   methods: {
     headers() {
       return { Authorization: 'Bearer ' + (localStorage.token || '') };
@@ -158,7 +173,8 @@ export default {
       const p = this.products.find(x => x.id_produk === item.id_produk);
       if (p) {
         item.harga_beli = p.harga_beli || p.harga_jual || 0;
-        item.diskon_pemasok = p.diskon_pemasok || 0;
+        // Diskon pemasok = properti VENDOR (products tak punya kolom ini).
+        item.diskon_pemasok = this.vendorDiskon;
       }
       if (this.form.id_pesanan) {
         const sisa = this.sisaPo(item.id_produk);
@@ -184,7 +200,7 @@ export default {
           id_produk: pi.id_produk,
           jumlah_diterima: pi.qty - pi.received_qty,
           harga_beli: pi.unit_price || 0,
-          diskon_pemasok: 0,
+          diskon_pemasok: this.vendorDiskon,
         }));
     },
     async finishReceive() {

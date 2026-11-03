@@ -17,23 +17,35 @@
       <h2 class="text-sm font-semibold text-[#0f172a] uppercase tracking-[0.02em] mb-4">INPUT DATA SUB-KELAS</h2>
 
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-        <div>
-          <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">DIVISI</label>
-          <input v-model="form.divisi" type="text" placeholder="Nama Divisi..." class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] font-mono focus:border-[#10b981]" />
-        </div>
-        <div>
-          <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">DEPARTEMEN</label>
-          <input v-model="form.departemen" type="text" placeholder="Nama Departemen..." class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] font-mono focus:border-[#10b981]" />
-        </div>
-        <div>
-          <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">KELAS</label>
-          <input v-model="form.kelas" type="text" placeholder="Nama Kelas..." class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] font-mono focus:border-[#10b981]" />
-        </div>
-        <div>
-          <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">SUB-KELAS</label>
-          <input v-model="form.subkelas" type="text" placeholder="Nama Sub-Kelas..." class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] focus:border-[#10b981] font-mono" />
-        </div>
-      </div>
+              <div class="relative">
+                <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">DIVISI</label>
+                <input v-model="form.divisi" @focus="show.divisi = true" @input="onDivisiInput" @blur="hideLater('divisi')" type="text" placeholder="Ketik nama divisi..." autocomplete="off" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] font-mono focus:border-[#10b981]" />
+                <ul v-if="show.divisi && filteredDivisions.length" class="absolute z-20 mt-1 w-full max-h-48 overflow-auto bg-white border border-[#e2e8f0] rounded-[2px] shadow-lg">
+                  <li v-for="d in filteredDivisions" :key="d.id_divisi" @mousedown.prevent="pickDivisi(d)" class="px-3 py-2 text-sm font-mono text-[#0f172a] hover:bg-[#ecfdf5] cursor-pointer">{{ d.nama_divisi }}</li>
+                </ul>
+              </div>
+              <div class="relative">
+                <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">DEPARTEMEN</label>
+                <input v-model="form.departemen" @focus="show.departemen = true" @input="onDepartemenInput" @blur="hideLater('departemen')" type="text" placeholder="Ketik nama departemen..." autocomplete="off" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] font-mono focus:border-[#10b981]" />
+                <ul v-if="show.departemen && filteredDepartments.length" class="absolute z-20 mt-1 w-full max-h-48 overflow-auto bg-white border border-[#e2e8f0] rounded-[2px] shadow-lg">
+                  <li v-for="d in filteredDepartments" :key="d.id_departemen" @mousedown.prevent="pickDepartemen(d)" class="px-3 py-2 text-sm font-mono text-[#0f172a] hover:bg-[#ecfdf5] cursor-pointer">{{ d.nama_departemen }}</li>
+                </ul>
+              </div>
+              <div class="relative">
+                <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">KELAS</label>
+                <input v-model="form.kelas" @focus="show.kelas = true" @input="onKelasInput" @blur="hideLater('kelas')" type="text" placeholder="Ketik nama kelas..." autocomplete="off" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] font-mono focus:border-[#10b981]" />
+                <ul v-if="show.kelas && filteredClasses.length" class="absolute z-20 mt-1 w-full max-h-48 overflow-auto bg-white border border-[#e2e8f0] rounded-[2px] shadow-lg">
+                  <li v-for="c in filteredClasses" :key="c.id_kelas" @mousedown.prevent="pickKelas(c)" class="px-3 py-2 text-sm font-mono text-[#0f172a] hover:bg-[#ecfdf5] cursor-pointer">{{ c.nama_kelas }}</li>
+                </ul>
+              </div>
+              <div class="relative">
+                <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">SUB-KELAS</label>
+                <input v-model="form.subkelas" @focus="show.subkelas = true" @input="show.subkelas = true" @blur="hideLater('subkelas')" type="text" placeholder="Ketik nama sub-kelas..." autocomplete="off" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] focus:border-[#10b981] font-mono" />
+                <ul v-if="show.subkelas && filteredSubclasses.length" class="absolute z-20 mt-1 w-full max-h-48 overflow-auto bg-white border border-[#e2e8f0] rounded-[2px] shadow-lg">
+                  <li v-for="s in filteredSubclasses" :key="s.id_subkelas" @mousedown.prevent="pickSubkelas(s)" class="px-3 py-2 text-sm font-mono text-[#0f172a] hover:bg-[#ecfdf5] cursor-pointer">{{ s.nama_subkelas }}</li>
+                </ul>
+              </div>
+            </div>
 
       <div class="flex justify-end">
         <button @click="saveHierarchy" class="px-5 py-2 bg-[#10b981] hover:bg-[#059669] text-white rounded-[2px] text-sm font-semibold shadow-sm transition-colors">
@@ -137,12 +149,17 @@ export default {
   data() {
     return {
       form: {
-        divisi: '',
-        departemen: '',
-        kelas: '',
-        subkelas: ''
-      },
-      divisions: [],
+              divisi: '',
+              departemen: '',
+              kelas: '',
+              subkelas: ''
+            },
+            // id parent terpilih dari suggestion (autocomplete cascading)
+            selDivisi: '',
+            selDepartemen: '',
+            selKelas: '',
+            show: { divisi: false, departemen: false, kelas: false, subkelas: false },
+            divisions: [],
       departments: [],
       classes: [],
       subclasses: [],
@@ -161,20 +178,99 @@ export default {
     };
   },
   computed: {
-    filteredDepartments() {
-      if (!this.form.divisi) return this.departments;
-      return this.departments.filter(d => d.id_divisi === this.form.divisi);
+      // Autocomplete cascading — semua berbasis TEXT input (bukan select).
+      // Parent terpilih disimpan di sel* (id), pencarian pakai substring nama.
+      filteredDivisions() {
+        const q = (this.form.divisi || '').toLowerCase().trim();
+        if (!q) return this.divisions.slice(0, 50);
+        return this.divisions.filter(d => (d.nama_divisi || '').toLowerCase().includes(q)).slice(0, 50);
+      },
+      filteredDepartments() {
+        const q = (this.form.departemen || '').toLowerCase().trim();
+        let list = this.departments;
+        // Kalau divisi sudah dipilih dari dropdown, kunci ke divisi itu.
+        if (this.selDivisi) list = list.filter(d => d.id_divisi === this.selDivisi);
+        if (!q) return list.slice(0, 50);
+        return list.filter(d => (d.nama_departemen || '').toLowerCase().includes(q)).slice(0, 50);
+      },
+      filteredClasses() {
+        const q = (this.form.kelas || '').toLowerCase().trim();
+        let list = this.classes;
+        if (this.selDepartemen) list = list.filter(c => c.id_departemen === this.selDepartemen);
+        if (!q) return list.slice(0, 50);
+        return list.filter(c => (c.nama_kelas || '').toLowerCase().includes(q)).slice(0, 50);
+      },
+      filteredSubclasses() {
+        const q = (this.form.subkelas || '').toLowerCase().trim();
+        let list = this.subclasses;
+        if (this.selKelas) list = list.filter(s => s.id_kelas === this.selKelas);
+        if (!q) return list.slice(0, 50);
+        return list.filter(s => (s.nama_subkelas || '').toLowerCase().includes(q)).slice(0, 50);
+      },
     },
-    filteredClasses() {
-      if (!this.form.departemen) return this.classes;
-      return this.classes.filter(c => c.id_departemen === this.form.departemen);
-    }
-  },
   mounted() {
     this.fetchData();
   },
   methods: {
-    async fetchData() {
+      onDivisiInput() {
+        this.selDivisi = '';
+        this.form.departemen = ''; this.selDepartemen = '';
+        this.form.kelas = ''; this.selKelas = '';
+        this.show.divisi = true;
+      },
+      pickDivisi(d) {
+        this.form.divisi = d.nama_divisi;
+        this.selDivisi = d.id_divisi;
+        this.show.divisi = false;
+      },
+      onDepartemenInput() {
+        this.selDepartemen = '';
+        this.form.kelas = ''; this.selKelas = '';
+        this.show.departemen = true;
+      },
+      pickDepartemen(d) {
+        this.form.departemen = d.nama_departemen;
+        this.selDepartemen = d.id_departemen;
+        if (d.id_divisi) {
+          this.selDivisi = d.id_divisi;
+          const div = this.divisions.find(x => x.id_divisi === d.id_divisi);
+          if (div) this.form.divisi = div.nama_divisi;
+        }
+        this.show.departemen = false;
+      },
+      onKelasInput() {
+        this.selKelas = '';
+        this.show.kelas = true;
+      },
+      pickKelas(c) {
+        this.form.kelas = c.nama_kelas;
+        this.selKelas = c.id_kelas;
+        if (c.id_departemen) {
+          this.selDepartemen = c.id_departemen;
+          const dept = this.departments.find(x => x.id_departemen === c.id_departemen);
+          if (dept) {
+            this.form.departemen = dept.nama_departemen;
+            if (dept.id_divisi) {
+              this.selDivisi = dept.id_divisi;
+              const div = this.divisions.find(x => x.id_divisi === dept.id_divisi);
+              if (div) this.form.divisi = div.nama_divisi;
+            }
+          }
+        }
+        this.show.kelas = false;
+      },
+      pickSubkelas(s) {
+        this.form.subkelas = s.nama_subkelas;
+        if (s.id_kelas) {
+          const cls = this.classes.find(x => x.id_kelas === s.id_kelas);
+          if (cls) this.pickKelas(cls);
+        }
+        this.show.subkelas = false;
+      },
+      hideLater(field) {
+        setTimeout(() => { this.show[field] = false; }, 200);
+      },
+      async fetchData() {
       this.loading = true;
       try {
         const token = localStorage.getItem('token') || '';

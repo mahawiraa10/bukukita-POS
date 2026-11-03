@@ -28,7 +28,11 @@ class VendorController extends Controller
             'id_divisi' => 'nullable|exists:divisions,id_divisi',
         ]);
         
-        if (empty($data['alamat_lengkap'])) $data['alamat_lengkap'] = '-';
+        // Kolom NOT NULL tanpa default: isi '-' kalau form tidak mengirimnya,
+        // kalau tidak MySQL menolak insert (1364 doesn't have a default value).
+        foreach (['alamat_lengkap', 'nomor_telepon_pemasok', 'nomor_rekening'] as $col) {
+            if (empty($data[$col])) $data[$col] = '-';
+        }
         if (empty($data['id_divisi'])) {
             $div = \App\Models\Division::first();
             $data['id_divisi'] = $div ? $div->id_divisi : 'DIV-00001';

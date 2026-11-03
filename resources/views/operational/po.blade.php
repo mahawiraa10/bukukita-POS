@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Katalog & Purchase Order — BukuKita')
+@section('title', 'Purchase Order — BukuKita')
 
 @section('content')
 <div id="purchase-order-app">

@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\PoItem;
+use App\Models\Department;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use App\Models\Subclass;
 use App\Enums\POStatus;
 use App\Support\IdGen;
 use Illuminate\Support\Facades\DB;
@@ -22,33 +24,13 @@ class POService
                 'user_id'       => $userId ?? auth()->id(),
                 'status'        => POStatus::DRAFT->value,
                 'total_amount'  => 0,
+                'payment_method' => $data['payment_method'] ?? 'CASH',
                 'notes'         => $data['notes'] ?? null,
                 'expected_date' => $data['expected_date'] ?? null,
             ]);
 
             $total = 0;
             foreach ($data['items'] as $item) {
-                // Jika item membawa payload produk baru, lahirkan produk dulu (traceability).
-                if (empty($item['id_produk']) && !empty($item['new_product'])) {
-                    $np = $item['new_product'];
-                    $idProduk = IdGen::next(Product::class, 'id_produk', 'PRD');
-                    $product = Product::create([
-                        'id_produk'       => $idProduk,
-                        'sku'             => $np['sku'] ?? ('SKU-' . $idProduk),
-                        'id_pemasok'      => $data['id_pemasok'],
-                        'id_departemen'   => $np['id_departemen'],
-                        'id_subkelas'     => $np['id_subkelas'] ?? null,
-                        'nama_produk'     => $np['nama_produk'],
-                        'penerbit'        => $np['penerbit'] ?? null,
-                        'harga_jual'      => $np['harga_jual'] ?? 0,
-                        'harga_beli'      => $item['unit_price'],
-                        'harga_pokok'     => $item['unit_price'],
-                        'stok'            => 0,
-                        'is_active'       => true,
-                    ]);
-                    $item['id_produk'] = $idProduk;
-                }
-
                 $subtotal = $item['qty'] * $item['unit_price'];
                 $total += $subtotal;
                 PoItem::create([

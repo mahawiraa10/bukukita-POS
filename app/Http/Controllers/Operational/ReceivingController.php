@@ -40,8 +40,13 @@ class ReceivingController extends Controller
             if (!empty($data['id_pesanan'])) {
                 $po = PurchaseOrder::with('items')->where('po_code', $data['id_pesanan'])->firstOrFail();
 
+                // Draft PO TIDAK boleh menyentuh stok — hanya PO yang sudah di-approve.
                 if (!in_array($po->status, ['approved', 'partial'])) {
                     throw new \DomainException("PO {$po->po_code} berstatus {$po->status}, tidak bisa diterima.");
+                }
+                // Vendor dikunci mengikuti PO — cegah kiriman barang dari vendor lain.
+                if ($data['id_pemasok'] !== $po->id_pemasok) {
+                    throw new \DomainException("Vendor penerimaan harus sama dengan vendor PO {$po->po_code}.");
                 }
             }
 

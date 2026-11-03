@@ -19,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // ponytail: jangan pernah bocorin stack trace/path/env di produksi,
+        // walau APP_DEBUG di .env salah set jadi true.
+        if ($this->app->environment('production')) {
+            config(['app.debug' => false]);
+        }
     }
 }

@@ -84,6 +84,7 @@ export default {
         { type: 'member-riwayat', label: '10. Member Riwayat' },
         { type: 'till-closing', label: '11. Till & Shift Closing' },
         { type: 'event-closing', label: '12. Event Closing' },
+        { type: 'purchase-orders', label: '13. Laporan PO' },
       ],
     };
   },

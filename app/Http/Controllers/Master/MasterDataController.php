@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\Subclass;
 use App\Support\IdGen;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class MasterDataController extends Controller
 {
@@ -38,6 +39,21 @@ class MasterDataController extends Controller
             $query->with('division');
         } elseif ($key === 'subclasses') {
             $query->with('kelas.department');
+        }
+
+        // Scoping opsional per level parent — dipakai autocomplete cascading.
+        // Tanpa param tetap balik semua (backward compatible buat Master Produk).
+        if ($key === 'departments' && $request->filled('id_divisi')) {
+            $query->where('id_divisi', $request->input('id_divisi'));
+        } elseif ($key === 'classes') {
+            if ($request->filled('id_departemen')) {
+                $query->where('id_departemen', $request->input('id_departemen'));
+            } elseif ($request->filled('id_divisi')) {
+                // classes gak punya id_divisi → saring lewat departemen milik divisi itu
+                $query->whereIn('id_departemen', Department::where('id_divisi', $request->input('id_divisi'))->pluck('id_departemen'));
+            }
+        } elseif ($key === 'subclasses' && $request->filled('id_kelas')) {
+            $query->where('id_kelas', $request->input('id_kelas'));
         }
 
         return $query->withCount(in_array($key, ['divisions']) ? ['departments'] : (in_array($key, ['departments']) ? ['classes'] : (in_array($key, ['classes']) ? ['subclasses'] : [])))
@@ -108,12 +124,25 @@ class MasterDataController extends Controller
             }
         }
 
+        // Masukkan id hasil resolve, tapi HANYA kolom yang ada di tabelnya:
+        // departments punya id_divisi, classes punya id_departemen, subclasses cuma id_kelas.
+        $cols = Schema::getColumnListing((new $m)->getTable());
         foreach ($resolved as $col => $id) {
-            if ($col !== 'id_divisi' && $col !== 'id_departemen') {
+            if (in_array($col, $cols, true)) {
                 $data[$col] = $id;
             }
         }
 
+        // Enforce uniqueness for Sub-Kelas under Kelas
+        if ($key === 'subclasses') {
+            $existing = Subclass::where('nama_subkelas', trim($request->input('nama_subkelas')))
+                                ->where('id_kelas', $resolved['id_kelas'] ?? $request->input('id_kelas'))
+                                ->first();
+            if ($existing) {
+                return response()->json(['message' => 'Sub-Kelas sudah ada di Kelas ini.'], 422);
+            }
+        }
+        
         $data[$pk] = $request->input($pk) ?: IdGen::next($m, $pk, $prefix);
         return response()->json($m::create($data), 201);
     }

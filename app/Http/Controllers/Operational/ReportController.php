@@ -27,7 +27,7 @@ class ReportController extends Controller
             'vendor-receiving', 'internal-receiving', 'vendor-return',
             'receipts-recap', 'receipts-detail', 'omzet-produk', 'omzet-departemen',
             'omzet-kasir', 'member-baru', 'member-riwayat', 'till-closing', 'event-closing',
-            'event-return',
+            'event-return', 'purchase-orders',
         ]]);
     }
 
@@ -251,73 +251,117 @@ class ReportController extends Controller
     {
         [$dari, $sampai] = $this->period($r);
         
-        // Ambil data shift & penutupan laci
+        // Ambil data shift & penutupan kasir
+        // daily_closings punya >1 baris per shift (TUNAI + DEBIT) -> jangan di-join (bikin baris ganda).
+        $modalSub = DB::table('daily_closings')
+            ->select('id_sesi_kasir', DB::raw('MIN(modal_awal) as modal_awal'))
+            ->groupBy('id_sesi_kasir');
+
         $shifts = DB::table('cashier_shifts')
             ->join('users', 'users.id', '=', 'cashier_shifts.id_pengguna')
-            ->leftJoin('daily_closings', 'daily_closings.id_sesi_kasir', '=', 'cashier_shifts.id_sesi_kasir')
+            ->leftJoinSub($modalSub, 'dc', 'dc.id_sesi_kasir', '=', 'cashier_shifts.id_sesi_kasir')
             ->whereBetween(DB::raw('DATE(cashier_shifts.waktu_buka)'), [$dari, $sampai])
-            ->select('cashier_shifts.id_sesi_kasir', 'users.name as kasir', 'cashier_shifts.nomor_kasir', 
-                     'cashier_shifts.waktu_buka', 'cashier_shifts.waktu_tutup',
-                     'daily_closings.modal_awal', 'daily_closings.uang_fisik', 'daily_closings.selisih')
+            ->select('cashier_shifts.id_sesi_kasir', 'users.name as kasir', 'cashier_shifts.nomor_kasir',
+                     'cashier_shifts.waktu_buka', 'cashier_shifts.waktu_tutup', 'dc.modal_awal')
             ->orderBy('cashier_shifts.waktu_buka')
             ->get();
 
         $rows = [];
         $totalOmzetHarian = 0;
-        $totalMetode = ['TUNAI' => 0, 'DEBIT' => 0, 'KARTU KREDIT' => 0, 'LAINNYA' => 0];
+        $totalMetode = ['TUNAI' => 0, 'DEBIT' => 0];
 
+        $rp = fn ($n) => number_format((float) $n, 0, ',', '.');
+
+        // Kelompokkan shift per tanggal operasional (shift 1 & 2 hari sama -> satu blok).
+        $perTanggal = [];
         foreach ($shifts as $s) {
-            // Ambil breakdown transaksi per shift
-            $sales = DB::table('sales')
-                ->where('id_sesi_kasir', $s->id_sesi_kasir)
-                ->where('payment_status', 'paid')
-                ->selectRaw('payment_method, SUM(final_amount) total')
-                ->groupBy('payment_method')
-                ->get();
+            $perTanggal[date('Y-m-d', strtotime($s->waktu_buka))][] = $s;
+        }
 
-            $shiftOmzet = 0;
-            foreach ($sales as $sl) {
-                $m = $this->mapMethod($sl->payment_method);
-                $shiftOmzet += $sl->total;
-                $totalMetode[$m] = ($totalMetode[$m] ?? 0) + $sl->total;
+        foreach ($perTanggal as $tanggal => $listShift) {
+            $hTunai = 0; $hRefund = 0;
+
+            $rows[] = [$tanggal, '', '', '', 'JUMLAH SHIFT: ' . count($listShift), ''];
+
+            foreach ($listShift as $s) {
+                $jam = date('H:i', strtotime($s->waktu_buka))
+                     . ' - ' . ($s->waktu_tutup ? date('H:i', strtotime($s->waktu_tutup)) : 'AKTIF');
+
+                // Omzet per metode bayar
+                $sales = DB::table('sales')
+                    ->where('id_sesi_kasir', $s->id_sesi_kasir)
+                    ->where('payment_status', 'paid')
+                    ->selectRaw('payment_method, SUM(final_amount) total')
+                    ->groupBy('payment_method')
+                    ->get();
+
+                $shiftOmzet = 0;
+                $shiftTunai = 0;
+                foreach ($sales as $sl) {
+                    $m = $this->mapMethod($sl->payment_method);
+                    $shiftOmzet += $sl->total;
+                    $totalMetode[$m] = ($totalMetode[$m] ?? 0) + $sl->total;
+                    if ($m === 'TUNAI') {
+                        $shiftTunai += $sl->total;
+                    }
+                }
+
+                // Refund tunai di shift ini (uang keluar dari kasir)
+                $shiftRefund = (float) DB::table('refunds')
+                    ->join('sales', 'sales.invoice_code', '=', 'refunds.id_transaksi_referensi')
+                    ->where('sales.id_sesi_kasir', $s->id_sesi_kasir)
+                    ->where('sales.payment_method', 'cash')
+                    ->sum('refunds.jumlah_pengembalian');
+
+                $totalOmzetHarian += $shiftOmzet;
+                $hTunai += $shiftTunai;
+                $hRefund += $shiftRefund;
+
+                // --- Blok SHIFT ---
+                $rows[] = [$s->id_sesi_kasir, $jam, $s->kasir, '', 'SHIFT ' . $s->id_sesi_kasir, ''];
+
+                // Detail produk terjual (dari awal sampai akhir shift)
+                $produk = DB::table('sale_items')
+                    ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+                    ->leftJoin('products', 'products.id_produk', '=', 'sale_items.id_produk')
+                    ->where('sales.id_sesi_kasir', $s->id_sesi_kasir)
+                    ->where('sales.payment_status', 'paid')
+                    ->selectRaw('COALESCE(products.nama_produk, sale_items.id_produk) nama, sales.payment_method metode,
+                                 SUM(sale_items.qty) qty, SUM(sale_items.subtotal) nilai')
+                    ->groupBy('nama', 'sales.payment_method')
+                    ->orderByDesc('nilai')
+                    ->get();
+
+                foreach ($produk as $pr) {
+                    $rows[] = ['', '', '', $this->mapMethod($pr->metode), '   • ' . $pr->nama . '  x' . $pr->qty, $rp($pr->nilai)];
+                }
+
+                // Subtotal per metode bayar
+                foreach ($sales as $sl) {
+                    $met = $this->mapMethod($sl->payment_method);
+                    $rows[] = ['', '', '', $met, 'TOTAL ' . $met, $rp($sl->total)];
+                }
+
+                // Kas shift
+                $rows[] = ['', '', '', '', 'Modal Awal', $rp($s->modal_awal ?? 0)];
+                $rows[] = ['', '', '', '', 'Omzet Shift', $rp($shiftOmzet)];
+                if ($shiftRefund > 0) {
+                    $rows[] = ['', '', '', '', 'Refund Tunai', '-' . $rp($shiftRefund)];
+                }
             }
 
-            $totalOmzetHarian += $shiftOmzet;
-
-            // Baris Shift
-            $rows[] = [
-                $s->id_sesi_kasir,
-                $s->waktu_buka . ' - ' . ($s->waktu_tutup ?? 'AKTIF'),
-                $s->kasir,
-                $s->nomor_kasir,
-                'TOTAL SHIFT',
-                number_format((float) ($s->modal_awal ?? 0), 0, '', ''),
-                number_format((float) $shiftOmzet, 0, '', ''),
-                number_format((float) ($s->uang_fisik ?? 0), 0, '', ''),
-                number_format((float) ($s->selisih ?? 0), 0, '', ''),
-            ];
-
-            // Baris Detail Metode per Shift
-            foreach ($sales as $sl) {
-                $rows[] = [
-                    '', '', '', '', 
-                    '↳ ' . $this->mapMethod($sl->payment_method),
-                    '',
-                    number_format((float) $sl->total, 0, '', ''),
-                    '', ''
-                ];
-            }
+            // --- NET CASH HARIAN ---
+            $rows[] = ['', '', '', '', 'NET CASH HARIAN', $rp($hTunai - $hRefund)];
         }
 
         $rekap = [
-            ['Total Omzet Harian', number_format((float) $totalOmzetHarian, 0, '', '')],
-            ['Total Tunai', number_format((float) $totalMetode['TUNAI'], 0, '', '')],
-            ['Total Debit/QRIS', number_format((float) $totalMetode['DEBIT'], 0, '', '')],
-            ['Total Kartu Kredit', number_format((float) $totalMetode['KARTU KREDIT'], 0, '', '')],
+            ['Total Omzet Harian', $rp($totalOmzetHarian)],
+            ['Total Tunai', $rp($totalMetode['TUNAI'])],
+            ['Total Debit', $rp($totalMetode['DEBIT'])],
         ];
 
-        return $this->respond($r, 'REKAP TILL & SHIFT HARIAN (AGREGAT)', $dari, $sampai, $rekap,
-            ['Sesi', 'Waktu', 'Kasir', 'Laci', 'Keterangan/Metode', 'Modal', 'Omzet', 'Fisik', 'Selisih'], $rows);
+        return $this->respond($r, 'REKAP TILL & NET CASH HARIAN', $dari, $sampai, $rekap,
+            ['Sesi', 'Waktu', 'Kasir', 'Metode', 'Keterangan', 'Nilai (Rp)'], $rows);
     }
 
     // ===== 12. Penutupan Acara / Bon Pengembalian =====
@@ -369,8 +413,7 @@ class ReportController extends Controller
     {
         return match ($m) {
             'cash' => 'TUNAI',
-            'qris' => 'DEBIT',
-            'transfer' => 'KARTU KREDIT',
+
             default => strtoupper($m),
         };
     }
@@ -412,4 +455,34 @@ class ReportController extends Controller
             'rows' => $rows,
         ]);
     }
+
+    // ===== 13. Laporan Pembelian (PO) =====
+    public function purchaseOrders(Request $r)
+    {
+        [$dari, $sampai] = $this->period($r);
+        $q = DB::table('purchase_orders as po')
+            ->leftJoin('vendors as v', 'v.id_pemasok', '=', 'po.id_pemasok')
+            ->whereBetween('po.created_at', [$dari . ' 00:00:00', $sampai . ' 23:59:59'])
+            ->when($r->query('status'), fn ($w, $val) => $w->where('po.status', $val))
+            ->when($r->query('payment_method'), fn ($w, $val) => $w->where('po.payment_method', $val));
+
+        $rows = $q->select('po.po_code', 'v.nama_pemasok', 'po.tipe_po', 'po.status', 'po.payment_method', 'po.total_amount', 'po.created_at')
+            ->get()->map(fn ($x) => [
+                $x->po_code, $x->nama_pemasok ?? '-', strtoupper($x->tipe_po ?? 'reguler'),
+                strtoupper($x->status), strtoupper($x->payment_method ?? 'CASH'),
+                number_format($x->total_amount, 2, '.', ''), (string) $x->created_at,
+            ]);
+
+        $rekap = [
+            ['Total PO', (string) $q->count()],
+            ['Total Nilai (Rp)', number_format($q->clone()->sum('po.total_amount'), 2, '.', '')],
+            ['Cash', (string) $q->clone()->where('po.payment_method', 'CASH')->count()],
+            ['Debit', (string) $q->clone()->where('po.payment_method', 'DEBIT')->count()],
+        ];
+
+        return $this->respond($r, 'LAPORAN PEMBELIAN BARANG (PO)', $dari, $sampai, $rekap,
+            ['No PO', 'Nama Pemasok', 'Tipe PO', 'Status', 'Metode Bayar', 'Total (Rp)', 'Tanggal'],
+            $rows);
+    }
+
 }

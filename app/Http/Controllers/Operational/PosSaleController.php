@@ -31,7 +31,7 @@ class PosSaleController extends Controller
             'items.*.qty' => 'required|integer|min:1',
             'items.*.diskon_tambahan' => 'nullable|numeric|min:0|max:100', // % manual per item
             'id_anggota' => 'nullable|string',   // MBR-xxxxx atau No HP
-            'metode_bayar' => 'required|in:TUNAI,DEBIT,KARTU KREDIT',
+            'metode_bayar' => 'required|in:TUNAI,DEBIT',
             'uang_diterima' => 'nullable|numeric|min:0',
             'no_referensi_bank' => 'nullable|string|max:100',
             'catatan' => 'nullable|string|max:255',
@@ -118,8 +118,7 @@ class PosSaleController extends Controller
                 'total_amount' => $subtotal,
                 'discount' => $diskonTotal,
                 'final_amount' => $final,
-                'payment_method' => strtolower(explode(' ', $data['metode_bayar'])[0]) === 'tunai' ? 'cash'
-                    : ($data['metode_bayar'] === 'DEBIT' ? 'qris' : 'transfer'),
+                'payment_method' => $data['metode_bayar'] === 'DEBIT' ? 'debit' : 'cash',
                 'payment_status' => 'paid',
                 'sale_date' => now(),
                 'notes' => $data['catatan'] ?? null,

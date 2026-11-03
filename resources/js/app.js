@@ -3,12 +3,15 @@ import { createApp } from 'vue';
 import MasterHierarki from './components/MasterHierarki.vue';
 import MasterVendor from './components/MasterVendor.vue';
 import MasterProduk from './components/MasterProduk.vue';
+import KatalogProduk from './components/KatalogProduk.vue';
 import PurchaseOrder from './components/PurchaseOrder.vue';
 import ReceivingGood from './components/ReceivingGood.vue';
 import WarehousePanel from './components/WarehousePanel.vue';
 import EventHistoryPanel from './components/EventHistoryPanel.vue';
 import EventManagePanel from './components/EventManagePanel.vue';
 import ReportPanel from './components/ReportPanel.vue';
+import PoinConfig from './components/PoinConfig.vue';
+import MemberPanel from './components/MemberPanel.vue';
 
 const appElement = document.getElementById('master-hierarki-app');
 if (appElement) {
@@ -23,6 +26,11 @@ if (vendorAppElement) {
 const produkAppElement = document.getElementById('master-produk-app');
 if (produkAppElement) {
     createApp(MasterProduk).mount('#master-produk-app');
+}
+
+const katalogAppElement = document.getElementById('katalog-produk-app');
+if (katalogAppElement) {
+    createApp(KatalogProduk).mount('#katalog-produk-app');
 }
 
 const poAppElement = document.getElementById('purchase-order-app');
@@ -53,4 +61,14 @@ if (eventManageAppElement) {
 const reportAppElement = document.getElementById('report-app');
 if (reportAppElement) {
     createApp(ReportPanel).mount('#report-app');
+}
+
+const poinAppElement = document.getElementById('poin-config-app');
+if (poinAppElement) {
+    createApp(PoinConfig).mount('#poin-config-app');
+}
+
+const memberAppElement = document.getElementById('member-app');
+if (memberAppElement) {
+    createApp(MemberPanel).mount('#member-app');
 }

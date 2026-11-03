@@ -1,8 +1,15 @@
 <template>
   <div class="space-y-4">
-    <!-- Header: search + filter rendah -->
-    <div class="flex flex-wrap items-center gap-3">
-      <h2 class="text-lg font-semibold text-[#0f172a] uppercase tracking-[0.02em]">GUDANG & INVENTORI</h2>
+    <!-- Tab switcher -->
+    <div class="flex gap-2 border-b border-[#e2e8f0]">
+      <button @click="currentTab = 'STOK'" :class="currentTab === 'STOK' ? 'border-[#0f172a] text-[#0f172a]' : 'border-transparent text-[#64748b] hover:text-[#0f172a]'" class="px-4 py-2 text-xs font-semibold uppercase border-b-2 transition-colors">Stok Master</button>
+      <button @click="currentTab = 'RETUR'" :class="currentTab === 'RETUR' ? 'border-[#0f172a] text-[#0f172a]' : 'border-transparent text-[#64748b] hover:text-[#0f172a]'" class="px-4 py-2 text-xs font-semibold uppercase border-b-2 transition-colors">Retur Vendor</button>
+    </div>
+
+    <div v-if="currentTab === 'STOK'">
+      <!-- Header: search + filter rendah -->
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-lg font-semibold text-[#0f172a] uppercase tracking-[0.02em]">GUDANG & INVENTORI</h2>
       <div class="flex-1"></div>
       <input v-model="search" @input="debouncedFetch" placeholder="Cari nama / SKU..."
         class="bg-white border border-[#e2e8f0] rounded-[2px] px-3 py-1.5 text-sm font-mono" />
@@ -52,6 +59,93 @@
           <button :disabled="page <= 1" @click="page--; fetchStock()" class="px-2 py-1 border border-[#e2e8f0] rounded-[2px] disabled:opacity-40">PREV</button>
           <button :disabled="page >= lastPage" @click="page++; fetchStock()" class="px-2 py-1 border border-[#e2e8f0] rounded-[2px] disabled:opacity-40">NEXT</button>
         </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- Tab Retur -->
+    <div v-if="currentTab === 'RETUR'" class="space-y-4">
+      <div class="bg-white border border-[#e2e8f0] rounded-[4px] p-6 max-w-2xl mx-auto">
+        <h3 class="text-sm font-bold text-[#0f172a] uppercase mb-4">PENGEMBALIAN BARANG KE PEMASOK</h3>
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-semibold text-[#64748b] uppercase mb-1">Pemasok *</label>
+              <select v-model="returForm.id_pemasok" class="w-full border border-[#e2e8f0] rounded-[2px] p-2 text-sm bg-white font-mono">
+                <option value="">[ Pilih Vendor ]</option>
+                <option v-for="v in vendors" :key="v.id_pemasok" :value="v.id_pemasok">{{ v.nama_pemasok }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-[#64748b] uppercase mb-1">Cari Produk *</label>
+              <input v-model="returSearch" @input="searchReturProduk" placeholder="Ketik nama/SKU..." class="w-full border border-[#e2e8f0] rounded-[2px] p-2 text-sm font-mono" />
+              <div v-if="returResults.length" class="absolute z-10 bg-white border border-[#e2e8f0] rounded-[2px] shadow-lg mt-1 w-[300px] max-h-48 overflow-y-auto">
+                <button v-for="rp in returResults" :key="rp.id_produk" @click="selectReturProduk(rp)" class="w-full text-left px-3 py-2 text-xs hover:bg-[#f8fafc] border-b border-[#f1f5f9]">
+                  <p class="font-bold text-[#0f172a]">{{ rp.nama_produk }}</p>
+                  <p class="text-[10px] text-[#64748b]">{{ rp.sku }} — Stok: {{ rp.stok }}</p>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="selectedReturProduk" class="bg-[#f8fafc] border border-[#e2e8f0] rounded-[2px] p-3 flex justify-between items-center">
+            <div>
+              <p class="text-[10px] uppercase font-bold text-[#64748b]">Produk Terpilih</p>
+              <p class="text-xs font-semibold text-[#0f172a]">{{ selectedReturProduk.nama_produk }} ({{ selectedReturProduk.sku }})</p>
+            </div>
+            <div class="text-right">
+              <p class="text-[10px] uppercase font-bold text-[#64748b]">Stok Tersedia</p>
+              <p class="text-xs font-mono font-bold text-[#10b981]">{{ selectedReturProduk.stok }}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-semibold text-[#64748b] uppercase mb-1">Jumlah Retur *</label>
+              <input v-model.number="returForm.jumlah_dikembalikan" type="number" min="1" :max="selectedReturProduk ? selectedReturProduk.stok : undefined" class="w-full border border-[#e2e8f0] rounded-[2px] p-2 text-sm font-mono" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-[#64748b] uppercase mb-1">Alasan *</label>
+              <input v-model="returForm.alasan" placeholder="cth: Barang rusak / Event selesai" class="w-full border border-[#e2e8f0] rounded-[2px] p-2 text-sm" />
+            </div>
+          </div>
+
+          <button @click="submitRetur" class="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-[2px] py-2 text-sm font-semibold transition-colors mt-2">
+            PROSES PENGEMBALIAN BARANG
+          </button>
+        </div>
+      </div>
+
+      <!-- Histori Retur -->
+      <div class="bg-white border border-[#e2e8f0] rounded-[4px] overflow-hidden">
+        <div class="px-5 py-3 border-b border-[#e2e8f0] bg-[#f8fafc]">
+          <h4 class="text-[11px] font-bold text-[#64748b] uppercase tracking-wider">Histori Retur Terakhir</h4>
+        </div>
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-[#e2e8f0] text-[#64748b] uppercase font-semibold">
+              <th class="p-3">Tanggal</th>
+              <th class="p-3">ID Retur</th>
+              <th class="p-3">Vendor</th>
+              <th class="p-3">Produk</th>
+              <th class="p-3 text-right">Qty</th>
+              <th class="p-3">Alasan</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in historyRetur" :key="r.id_pengembalian" class="border-b border-[#f1f5f9]">
+              <td class="p-3 font-mono">{{ r.tanggal_pengembalian }}</td>
+              <td class="p-3 font-mono text-[#10b981]">{{ r.id_pengembalian }}</td>
+              <td class="p-3">{{ r.id_pemasok }}</td>
+              <td class="p-3">{{ r.nama_produk }}</td>
+              <td class="p-3 text-right font-mono font-bold text-[#ef4444]">-{{ r.jumlah_dikembalikan }}</td>
+              <td class="p-3 text-[#64748b]">{{ r.alasan }}</td>
+            </tr>
+            <tr v-if="historyRetur.length === 0">
+              <td colspan="6" class="p-6 text-center text-[#64748b]">Belum ada histori retur.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -140,6 +234,14 @@ export default {
   data() {
     return {
       products: [],
+      currentTab: 'STOK',
+      vendors: [],
+      returForm: { id_pemasok: '', id_produk: '', jumlah_dikembalikan: 1, alasan: '' },
+      returSearch: '',
+      returResults: [],
+      selectedReturProduk: null,
+      historyRetur: [],
+      _returDeb: null,
       search: '',
       onlyLow: false,
       page: 1,
@@ -150,9 +252,57 @@ export default {
       _deb: null,
     };
   },
-  mounted() { this.fetchStock(); },
+  mounted() { this.fetchStock(); this.loadVendors(); this.fetchHistoryRetur(); },
   methods: {
     headers() { return { Authorization: `Bearer ${localStorage.token || ''}` }; },
+    async loadVendors() {
+      try {
+        const res = await axios.get('/api/vendors', { headers: this.headers() });
+        this.vendors = res.data.data ?? res.data ?? [];
+      } catch (e) { console.error(e); }
+    },
+    async fetchHistoryRetur() {
+      try {
+        const res = await axios.get('/api/vendor-returns', { headers: this.headers(), params: { per_page: 10 } });
+        this.historyRetur = res.data.data ?? res.data ?? [];
+      } catch (e) { console.error(e); }
+    },
+    searchReturProduk() {
+      clearTimeout(this._returDeb);
+      this._returDeb = setTimeout(async () => {
+        if (!this.returSearch.trim()) { this.returResults = []; return; }
+        try {
+          const res = await axios.get('/api/products', { headers: this.headers(), params: { search: this.returSearch, per_page: 10 } });
+          const d = res.data.data ?? res.data;
+          this.returResults = d.data ?? d ?? [];
+        } catch (e) { this.returResults = []; }
+      }, 250);
+    },
+    selectReturProduk(p) {
+      this.selectedReturProduk = p;
+      this.returForm.id_produk = p.id_produk;
+      this.returSearch = `${p.nama_produk} (${p.sku})`;
+      this.returResults = [];
+    },
+    async submitRetur() {
+      if (!this.returForm.id_pemasok) return this.showAlert('Pilih pemasok dulu.', 'error');
+      if (!this.returForm.id_produk) return this.showAlert('Pilih produk dulu.', 'error');
+      if (!this.returForm.alasan) return this.showAlert('Alasan wajib diisi.', 'error');
+      if (this.selectedReturProduk && this.returForm.jumlah_dikembalikan > this.selectedReturProduk.stok) {
+        return this.showAlert('Jumlah retur melebihi stok tersedia.', 'error');
+      }
+      try {
+        await axios.post('/api/vendor-returns', this.returForm, { headers: this.headers() });
+        this.showAlert('Retur vendor tercatat, stok dipotong.');
+        this.returForm = { id_pemasok: '', id_produk: '', jumlah_dikembalikan: 1, alasan: '' };
+        this.selectedReturProduk = null;
+        this.returSearch = '';
+        this.fetchStock();
+        this.fetchHistoryRetur();
+      } catch (e) {
+        this.showAlert(e.response?.data?.message || 'Gagal proses retur.', 'error');
+      }
+    },
     showAlert(msg, type = 'info') {
       this.alert = { show: true, msg, type };
       setTimeout(() => (this.alert.show = false), 2500);
