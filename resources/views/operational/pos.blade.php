@@ -166,22 +166,7 @@
             document.getElementById('member-display').textContent = '';
             renderCart();
             loadProducts();
-        } catch (e) {
-            // Offline fallback / queue
-            console.warn('Network error, saving to offline queue:', e);
-            const queue = JSON.parse(localStorage.getItem('offline_sales_queue') || '[]');
-            payload.offline_at = new Date().toISOString();
-            queue.push(payload);
-            localStorage.setItem('offline_sales_queue', JSON.stringify(queue));
-            alert("Koneksi terputus! Transaksi disimpan ke ANTRIAN OFFLINE (Local Storage). Akan disinkron otomatis saat online kembali.");
-            
-            cart.length = 0;
-            document.getElementById('main-cash-tender').value = '';
-            document.getElementById('global-discount-input').value = '0';
-            document.getElementById('selected-member-id').value = '';
-            document.getElementById('member-display').textContent = '';
-            renderCart();
-        }
+        } catch (e) { alert(e.message); }
     }
 
     function openRegisterModal() {
@@ -273,31 +258,6 @@
 
     let scanHistory = [];
 
-    async function syncOfflineQueue() {
-        const queue = JSON.parse(localStorage.getItem('offline_sales_queue') || '[]');
-        if (queue.length === 0) return;
-        
-        const remaining = [];
-        for (const payload of queue) {
-            try {
-                const res = await fetch('/api/pos/sales', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!res.ok) remaining.push(payload);
-            } catch (err) {
-                remaining.push(payload);
-            }
-        }
-        localStorage.setItem('offline_sales_queue', JSON.stringify(remaining));
-        if (queue.length > remaining.length) {
-            console.log('Synced offline sales queue. Remaining:', remaining.length);
-        }
-    }
-
-    window.addEventListener('online', syncOfflineQueue);
-    setInterval(syncOfflineQueue, 30000); // Check every 30s
 
 
     async function loadProducts() {
