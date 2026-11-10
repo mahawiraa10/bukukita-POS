@@ -121,9 +121,41 @@
       </div>
     </div>
 
+
+  <div id="success-payment-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4">
+    <div class="bg-white rounded-sm p-8 w-full max-w-sm shadow-2xl text-center border border-slate-200">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
+      <h3 class="text-lg font-bold text-slate-900 uppercase tracking-tight">Transaksi Berhasil</h3>
+      <p id="success-invoice-code" class="text-xs text-slate-500 mono mt-1 font-semibold"></p>
+      
+      <div class="mt-6 space-y-2">
+        <button onclick="printReceiptFromModal()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-sm font-bold text-xs uppercase tracking-wider transition-all">Cetak Struk</button>
+        <button onclick="closeSuccessModal()" class="w-full bg-white border border-slate-300 text-slate-600 py-2.5 rounded-sm font-bold text-[10px] uppercase tracking-wider hover:bg-slate-50 transition-all">Selesai (Esc)</button>
+      </div>
+    </div>
+  </div>
+
   </main>
 
   <script>
+
+    function closeSuccessModal() {
+        document.getElementById('success-payment-modal').classList.add('hidden');
+        document.getElementById('product-search')?.focus();
+    }
+
+    function printReceiptFromModal() {
+        const code = window.lastInvoiceCode;
+        if (code) {
+            window.open('/receipt/' + encodeURIComponent(code), '_blank', 'width=300,height=600');
+        }
+    }
+
+    // Close on Escape
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeSuccessModal();
+    });
+
 
     
 
@@ -158,12 +190,17 @@
             const d = await res.json();
             if (!res.ok) throw new Error(d.message || 'Gagal simpan transaksi');
             
-            alert("Transaksi Berhasil! Invoice: " + d.sale.invoice_code);
+            // Tampilkan modal sukses
+            document.getElementById('success-invoice-code').textContent = d.sale.invoice_code;
+            window.lastInvoiceCode = d.sale.invoice_code;
+            document.getElementById('success-payment-modal').classList.remove('hidden');
+            
+            // Reset state
             cart.length = 0;
-            document.getElementById('main-cash-tender').value = '';
-            document.getElementById('global-discount-input').value = '0';
-            document.getElementById('selected-member-id').value = '';
-            document.getElementById('member-display').textContent = '';
+            if(document.getElementById('main-cash-tender')) document.getElementById('main-cash-tender').value = '';
+            if(document.getElementById('global-discount-input')) document.getElementById('global-discount-input').value = '0';
+            if(document.getElementById('selected-member-id')) document.getElementById('selected-member-id').value = '';
+            if(document.getElementById('member-display')) document.getElementById('member-display').textContent = '';
             renderCart();
             loadProducts();
         } catch (e) { alert(e.message); }
