@@ -433,7 +433,7 @@
           <td class="border border-slate-300 px-3 py-2.5 text-slate-900 font-medium">${item.name}</td>
           <td class="border border-slate-300 px-3 py-2.5 text-right mono text-slate-700">${fmt(item.price)}</td>
           <td class="border border-slate-300 px-3 py-2.5 text-center">
-            <input type="number" oninput="updateItemDiscount('${item.id}', this.value)" value="${item.discount}" 
+            <input type="number" onchange="updateItemDiscount('${item.id}', this.value)" value="${item.discount}" 
                    class="w-full bg-white border border-slate-300 rounded-sm px-2 py-1 text-right text-rose-700 font-mono text-[11px] focus:outline-none focus:border-rose-500" placeholder="0">
           </td>
           <td class="border border-slate-300 px-2 py-2 text-center">
