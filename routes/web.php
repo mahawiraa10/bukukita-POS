@@ -20,3 +20,4 @@ Route::get('/reports', fn() => view('reports.index'))->name('reports.index');
 Route::get('/master/poin', fn() => view('master.poin'))->name('master.poin');
 Route::get('/master/member', fn() => view('master.member'))->name('master.member');
 Route::get('/pos', fn() => view('operational.pos'))->name('pos.index');
+Route::get('/receipt/{sale}', [\App\Http\Controllers\ReceiptController::class, 'show'])->name('receipt.show');

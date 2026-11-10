@@ -145,9 +145,11 @@
     }
 
     function printReceiptFromModal() {
-        const code = window.lastInvoiceCode;
-        if (code) {
-            window.open('/receipt/' + encodeURIComponent(code), '_blank', 'width=300,height=600');
+        const id = window.lastSaleId;
+        if (id) {
+            window.open('/receipt/' + encodeURIComponent(id), '_blank', 'width=320,height=640');
+        } else {
+            alert('ID transaksi tidak ditemukan.');
         }
     }
 
@@ -192,6 +194,7 @@
             
             // Tampilkan modal sukses
             document.getElementById('success-invoice-code').textContent = d.sale.invoice_code;
+            window.lastSaleId = d.sale.id || (d.sale.data && d.sale.data.id);
             window.lastInvoiceCode = d.sale.invoice_code;
             document.getElementById('success-payment-modal').classList.remove('hidden');
             
