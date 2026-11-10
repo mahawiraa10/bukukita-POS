@@ -50,10 +50,10 @@ class RoleSeeder extends Seeder
             Permission::whereIn('name', ['view_dashboard', 'approve_po', 'manage_customers', 'view_reports', 'view_warehouse', 'view_event_history', 'manage_company', 'manage_users'])->get()
         );
 
-        // Admin: Input barang, vendor, PO/receiving (dari vendor/gudang), kelola customer, warehouse
+        // Admin: Input barang, vendor, PO/receiving (dari vendor/gudang), kelola customer, warehouse, laporan
         $admin = Role::where('name', 'admin')->first();
         $admin->permissions()->sync(
-            Permission::whereIn('name', ['manage_books', 'manage_vendors', 'manage_po', 'manage_customers', 'view_warehouse'])->get()
+            Permission::whereIn('name', ['manage_books', 'manage_vendors', 'manage_po', 'manage_customers', 'view_warehouse', 'view_reports'])->get()
         );
 
         // Owner: semua permission (sudah sync all di atas, pastikan view_warehouse masuk)

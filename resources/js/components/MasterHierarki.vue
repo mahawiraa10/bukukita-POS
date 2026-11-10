@@ -273,8 +273,8 @@ export default {
       async fetchData() {
       this.loading = true;
       try {
-        const token = localStorage.getItem('token') || '';
-        const headers = { Authorization: `Bearer ${token}` };
+        const token = localStorage.token || '';
+        const headers = { Authorization: 'Bearer ' + token };
         
         const [divRes, depRes, clsRes, subRes] = await Promise.all([
           axios.get('/api/divisions', { headers }),
@@ -353,17 +353,13 @@ export default {
       }
     },
     async saveHierarchy() {
-      if (!this.form.subkelas?.trim()) {
-        this.showAlert('Sub-Kelas wajib diisi', 'error');
-        return;
-      }
-      if (!this.form.divisi || !this.form.departemen || !this.form.kelas) {
+      if (!this.form.divisi || !this.form.departemen || !this.form.kelas || !this.form.subkelas) {
         this.showAlert('Semua kolom hierarki wajib diisi', 'error');
         return;
       }
 
-      const token = localStorage.getItem('token') || '';
-      const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+      const token = localStorage.token || '';
+      const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
 
       try {
         await axios.post('/api/subclasses', {
@@ -391,8 +387,8 @@ export default {
       const { item } = this.deleteModal;
       if (!item) return;
 
-      const token = localStorage.getItem('token') || '';
-      const headers = { Authorization: `Bearer ${token}` };
+      const token = localStorage.token || '';
+      const headers = { Authorization: 'Bearer ' + token };
 
       try {
         await axios.delete(`/api/subclasses/${item.id_subkelas}`, { headers });

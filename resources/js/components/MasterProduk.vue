@@ -46,21 +46,25 @@
           <thead>
             <tr class="border-b border-[#e2e8f0] bg-[#f1f5f9] text-[#64748b] text-[12px] font-semibold uppercase tracking-[0.05em]">
               <th class="p-3">SKU</th>
+              <th class="p-3">ISBN</th>
               <th class="p-3">NAMA PRODUK</th>
+              <th class="p-3">PENULIS</th>
+              <th class="p-3">PENERBIT</th>
               <th class="p-3">KATEGORI</th>
-              <th class="p-3">VENDOR ASAL</th>
               <th class="p-3 text-right">HARGA JUAL</th>
               <th class="p-3 text-right">STOK</th>
               <th class="p-3 text-right">AKSI</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[#e2e8f0]">
-            <tr v-if="loading"><td colspan="6" class="p-6 text-center text-[#64748b] font-mono">Memuat data...</td></tr>
+            <tr v-if="loading"><td colspan="9" class="p-6 text-center text-[#64748b] font-mono">Memuat data...</td></tr>
             <tr v-for="(p, index) in products" :key="p.id_produk" :class="index % 2 === 0 ? 'bg-white' : 'bg-[#f8fafc]'" class="hover:bg-[#f1f5f9] transition-colors">
               <td class="p-3 font-mono text-xs text-[#64748b]">{{ p.sku }}</td>
+              <td class="p-3 font-mono text-xs text-[#64748b]">{{ p.isbn || '-' }}</td>
               <td class="p-3 font-medium text-[#0f172a]">{{ p.nama_produk }}</td>
+              <td class="p-3 text-[#64748b] font-mono text-xs">{{ p.deskripsi_produk || '-' }}</td>
+              <td class="p-3 text-[#64748b] font-mono text-xs">{{ p.penerbit || '-' }}</td>
               <td class="p-3 text-[#64748b] font-mono text-xs">{{ p.kategori || '-' }}</td>
-              <td class="p-3 text-[#64748b] font-mono text-xs">{{ p.vendor_nama || 'BELUM ADA PO' }}</td>
               <td class="p-3 text-right font-mono text-[#0f172a]">Rp {{ Number(p.harga_jual || 0).toLocaleString() }}</td>
               <td class="p-3 text-right font-mono text-[#64748b]">{{ p.stok || 0 }}</td>
               <td class="p-3 text-right">
@@ -70,7 +74,7 @@
               </td>
             </tr>
             <tr v-if="!loading && products.length === 0">
-              <td colspan="6" class="p-6 text-center text-[#64748b]">Belum ada produk. Buat PO lalu terima barang di halaman Penerimaan.</td>
+              <td colspan="9" class="p-6 text-center text-[#64748b]">Belum ada produk.</td>
             </tr>
           </tbody>
         </table>
@@ -215,20 +219,20 @@ export default {
     // Adapter kolom CSV (Indonesia friendly) -> payload API
     normRow(r) {
       const low = {};
-      Object.keys(r).forEach(k => { low[String(k).trim().toLowerCase()] = r[k]; });
+      Object.keys(r).forEach(k => { low[String(k).trim().toLowerCase().replace(/\s+/g, '_')] = r[k]; });
       return {
         sku: String(low.sku ?? '').trim(),
-        nama_produk: String(low.nama_produk ?? low.nama ?? '').trim(),
+        nama_produk: String(low.nama_produk ?? low.judul_buku ?? '').trim(),
         isbn: String(low.isbn ?? '').trim() || null,
-        deskripsi_produk: String(low.deskripsi_produk ?? low.pengarang ?? '').trim() || null,
+        deskripsi_produk: String(low.penulis ?? '').trim() || null,
         penerbit: String(low.penerbit ?? '').trim() || null,
-        id_departemen: String(low.id_departemen ?? '').trim(),
+        id_departemen: String(low.id_departemen ?? 'DEP-00001').trim(),
         id_subkelas: String(low.id_subkelas ?? '').trim() || null,
         id_pemasok: String(low.id_pemasok ?? '').trim() || null,
         harga_beli: Number(low.harga_beli ?? 0),
         harga_jual: Number(low.harga_jual ?? 0),
-        stok: Number(low.stok ?? 0),
-        foto_produk: String(low.foto_produk ?? '').trim() || null,
+        stok: Number(low.stok_awal ?? low.stok ?? 0),
+        foto_produk: String(low.foto_produk ?? 'default.webp').trim(),
       };
     },
     handleFile(e) {

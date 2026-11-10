@@ -13,7 +13,8 @@ class Sale extends Model
         'invoice_code', 'customer_id', 'user_id', 'total_amount',
         'discount', 'final_amount', 'payment_method',
         'payment_status', 'sale_date', 'notes',
-        'id_sesi_kasir', 'id_acara', 'business_date'
+        'id_sesi_kasir', 'id_acara', 'business_date',
+        'original_sale_id'
     ];
 
     protected $casts = [
@@ -47,5 +48,10 @@ class Sale extends Model
     public function event()
     {
         return $this->belongsTo(Event::class, 'id_acara', 'id_acara');
+    }
+
+    public function originalSale()
+    {
+        return $this->belongsTo(Sale::class, 'original_sale_id');
     }
 }

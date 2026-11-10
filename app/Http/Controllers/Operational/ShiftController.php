@@ -15,9 +15,8 @@ class ShiftController extends Controller
     private function assertHardStart(): void
     {
         // Hard-start 07:00 WIB (Function 9); jam server = source of truth
-        if (now()->format('H:i') < '07:00') {
-            abort(422, 'Operasional toko belum buka (jam mulai 07:00 WIB)');
-        }
+        // ponytail: sementara dibebaskan tanpa jam buka (as request).
+        // return; 
     }
 
     public function current()
@@ -29,25 +28,30 @@ class ShiftController extends Controller
 
     public function open(Request $request)
     {
-        $this->assertHardStart();
+        // $this->assertHardStart(); // DISABLED
+        \Log::info("Shift open request: " . json_encode($request->all())); 
         $data = $request->validate([
             'nomor_kasir' => 'required|string|max:10',
             'modal_awal' => 'required|numeric|min:0',
         ]);
+        
+        // Batasan sesi / shift dinonaktifkan sementara atas permintaan user
+        /*
         $dup = CashierShift::where('id_pengguna', (string) auth()->id())
             ->whereDate('waktu_buka', today())->where('status_sesi', 'BUKA')->exists();
         if ($dup) {
-            abort(422, 'Kasir sudah punya sesi aktif hari ini (1 sesi/hari)');
+            \Log::error("Kasir sudah punya sesi aktif"); abort(422, 'Kasir sudah punya sesi aktif hari ini (1 sesi/hari)');
         }
-        // Batas 2 shift per hari operasional (Shift 1 & Shift 2).
         if (CashierShift::whereDate('waktu_buka', today())->count() >= 2) {
-            abort(422, 'Batas 2 shift per hari sudah tercapai (Shift 1 & Shift 2). Tutup kasir dulu.');
+            \Log::error("Batas shift tercapai"); abort(422, 'Batas 2 shift per hari sudah tercapai (Shift 1 & Shift 2). Tutup kasir dulu.');
         }
+        */
+
         $s = CashierShift::create([
-            'id_sesi_kasir' => IdGen::next(CashierShift::class, 'id_sesi_kasir', 'SFT', 2), // SFT-01, SFT-02
+            'id_sesi_kasir' => IdGen::next(CashierShift::class, 'id_sesi_kasir', 'SFT', 2),
             'id_pengguna' => (string) auth()->id(),
             'nomor_kasir' => $data['nomor_kasir'],
-            'waktu_buka' => now(), // jam asli -> audit lateness
+            'waktu_buka' => now(),
             'modal_awal' => $data['modal_awal'],
             'status_sesi' => 'BUKA',
         ]);
@@ -56,7 +60,7 @@ class ShiftController extends Controller
 
     public function close(Request $request)
     {
-        $data = $request->validate(['uang_fisik' => 'required|numeric|min:0']);
+        \Log::info("Shift open request: " . json_encode($request->all())); $data = $request->validate(['uang_fisik' => 'required|numeric|min:0']);
         $s = CashierShift::where('id_pengguna', (string) auth()->id())
             ->where('status_sesi', 'BUKA')->latest('waktu_buka')->firstOrFail();
         // Net cash: modal + tunai masuk - refund tunai (isolasi per shift)

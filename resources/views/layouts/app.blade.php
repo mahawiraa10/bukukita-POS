@@ -173,6 +173,8 @@
         if (!el.closest('.dropdown')) el.style.display = 'none';
       });
       document.querySelectorAll('nav .dropdown').forEach(el => el.style.display = 'none');
+      const dashboardLink = document.querySelector('nav a[href="/dashboard"]');
+      if (dashboardLink) dashboardLink.style.display = 'none';
     }
 
     // Dropdown toggle (click, bukan hover — lebih stabil)

@@ -62,7 +62,7 @@ export default {
     const q = new URLSearchParams(window.location.search);
     return {
       type: q.get('type') || 'vendor-receiving',
-      dari: q.get('dari') || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
+      dari: q.get('dari') || new Date().toISOString().slice(0, 10),
       sampai: q.get('sampai') || new Date().toISOString().slice(0, 10),
       meta: {},
       rekap: [],

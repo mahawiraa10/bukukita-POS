@@ -10,5 +10,8 @@ class Vendor extends Model
     protected $primaryKey = 'id_pemasok';
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $guarded = [];
+    protected $fillable = [
+        'id_pemasok', 'nama_pemasok', 'alamat_lengkap', 'nomor_telepon_pemasok',
+        'email_pemasok', 'diskon_pemasok', 'nomor_rekening', 'is_active', 'id_divisi'
+    ];
 }

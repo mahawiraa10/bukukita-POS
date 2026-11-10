@@ -47,6 +47,9 @@ class VendorController extends Controller
         $v = Vendor::findOrFail($id);
         $v->update($request->validate([
             'nama_pemasok' => 'sometimes|string|max:150',
+            'alamat_lengkap' => 'nullable|string|max:255',
+            'nomor_telepon_pemasok' => 'nullable|string|max:20',
+            'nomor_rekening' => 'nullable|string|max:30',
             'email_pemasok' => 'nullable|email|unique:vendors,email_pemasok,' . $id . ',id_pemasok',
             'diskon_pemasok' => 'nullable|numeric',
             'id_divisi' => 'sometimes|nullable|exists:divisions,id_divisi',
@@ -57,7 +60,7 @@ class VendorController extends Controller
 
     public function destroy(string $id)
     {
-        Vendor::findOrFail($id)->update(['is_active' => false]);
-        return response()->json(['message' => 'vendor dinonaktifkan (soft)']);
+        Vendor::findOrFail($id)->delete();
+        return response()->json(['message' => 'Vendor berhasil dihapus permanen']);
     }
 }

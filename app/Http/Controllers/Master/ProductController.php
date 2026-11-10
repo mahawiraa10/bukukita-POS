@@ -46,6 +46,7 @@ class ProductController extends Controller
         }
 
         $query->when($request->low_stock, fn($q) => $q->whereColumn('stok', '<=', 'min_stock'));
+        $query->when($request->boolean('available'), fn($q) => $q->where('stok', '>', 0));
 
         return $query->paginate($request->input('per_page', 20))->through(function (Product $p) use ($canSeeCost) {
             $row = array_merge($p->toArray(), ['kategori' => $p->kategori]);

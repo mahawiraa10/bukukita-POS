@@ -29,29 +29,47 @@ class ExportController extends Controller
         return Response::make($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="sales.csv"']);
     }
 
-    public function purchaseOrders(Request $r)
+    public function purchaseOrderSingle(Request $r, int $id)
     {
-        // ponytail: CSV langsung dari query builder, hindari eager-load relasi legacy.
-        $rows = DB::table('purchase_orders as po')
+        $po = DB::table('purchase_orders as po')
             ->leftJoin('vendors as v', 'v.id_pemasok', '=', 'po.id_pemasok')
-            ->when($r->query('status'), fn ($q, $v) => $q->where('po.status', $v))
-            ->when($r->query('tipe'), fn ($q, $v) => $q->where('po.tipe_po', $v))
-            ->select('po.po_code', 'v.nama_pemasok', 'po.tipe_po', 'po.status', 'po.total_amount', 'po.expected_date', 'po.received_date')
+            ->where('po.id', $id)
+            ->select('po.*', 'v.nama_pemasok')
+            ->first();
+
+        if (!$po) {
+            return response()->json(['message' => 'PO tidak ditemukan'], 404);
+        }
+
+        $items = DB::table('po_items as pi')
+            ->leftJoin('products as p', 'p.id_produk', '=', 'pi.id_produk')
+            ->where('pi.purchase_order_id', $id)
+            ->select('pi.*', 'p.nama_produk', 'p.isbn')
             ->get();
 
-        $csv = "po_code,tipe_po,vendor,status,total_amount,expected_date,received_date\n";
-        foreach ($rows as $po) {
+        $csv = "NO PO: {$po->po_code}\n";
+        $csv .= "Tanggal Dibuat: {$po->created_at}\n";
+        $csv .= "Vendor: {$po->nama_pemasok}\n";
+        $csv .= "Tipe: {$po->tipe_po}\n";
+        $csv .= "Metode Pembayaran: {$po->payment_method}\n";
+        $csv .= "Status: {$po->status}\n\n";
+        $csv .= "isbn,nama_produk,jumlah,harga_satuan,metode_pembayaran,subtotal\n";
+
+        foreach ($items as $it) {
+            $subtotal = $it->qty * $it->unit_price;
             $csv .= implode(',', [
-                $po->po_code,
-                $po->tipe_po ?? '-',
-                '"' . ($po->nama_pemasok ?? '-') . '"',
-                $po->status,
-                $po->total_amount,
-                $po->expected_date ?? '',
-                $po->received_date ?? '',
+                $it->isbn ?? '-',
+                '"' . ($it->nama_produk ?? '-') . '"',
+                $it->qty,
+                $it->unit_price,
+                $po->payment_method,
+                $subtotal,
             ]) . "\n";
         }
 
-        return Response::make($csv, 200, ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="purchase_orders.csv"']);
+        return Response::make($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="PO-' . $po->po_code . '.csv"'
+        ]);
     }
 }

@@ -10,7 +10,12 @@ class Product extends Model
     protected $primaryKey = 'id_produk';
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $guarded = [];
+    protected $fillable = [
+        'id_produk', 'sku', 'id_pemasok', 'id_divisi', 'id_departemen', 'id_kelas', 'id_subkelas',
+        'nama_produk', 'deskripsi_produk', 'penerbit', 'isbn', 'foto_produk', 'harga_jual',
+        'harga_beli', 'harga_pokok', 'diskon_base', 'stok', 'min_stock', 'is_active'
+    ];
+    protected $appends = ['kategori'];
 
     public function subkelas()
     {

@@ -10,5 +10,8 @@ class Refund extends Model
     protected $primaryKey = 'id_pengembalian';
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $guarded = [];
+    protected $fillable = [
+        'id_pengembalian', 'id_produk', 'id_transaksi_referensi', 'tanggal_pengembalian',
+        'jumlah_pengembalian', 'sumber_pengembalian', 'jumlah_dikembalikan', 'jumlah_nilai'
+    ];
 }

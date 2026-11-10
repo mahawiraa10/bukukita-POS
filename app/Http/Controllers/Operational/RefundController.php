@@ -22,7 +22,6 @@ class RefundController extends Controller
             'items.*.id_produk' => 'required|string',
             'items.*.qty' => 'required|integer|min:1',
             'sumber_pengembalian' => 'required|string',
-            'pin_supervisor' => 'required|string',
         ]);
 
         // 1) Same-day guard: tolak kalau bukan business_date hari ini (lewat 00:00 = hangus)
@@ -34,11 +33,8 @@ class RefundController extends Controller
             abort(403, 'Refund ditolak: hanya untuk transaksi hari yang sama');
         }
 
-        // 2) PIN supervisor
-        $supervisor = \App\Models\User::where('role_id', 2)->where('is_active', 1)->first();
-        if (!$supervisor || !$supervisor->pin || !Hash::check($data['pin_supervisor'], $supervisor->pin)) {
-            abort(422, 'PIN supervisor salah');
-        }
+        // 2) PIN supervisor removed
+
 
         $totalUang = 0;
         DB::beginTransaction();

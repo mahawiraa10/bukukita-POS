@@ -133,4 +133,6 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:view_reports');
     Route::get('/export/purchase-orders', [\App\Http\Controllers\ExportController::class, 'purchaseOrders'])
         ->middleware('permission:manage_po');
+    Route::get('/export/purchase-orders/{id}', [\App\Http\Controllers\ExportController::class, 'purchaseOrderSingle'])
+        ->middleware('permission:manage_po');
 });

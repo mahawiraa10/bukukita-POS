@@ -35,6 +35,7 @@ class PosSaleController extends Controller
             'uang_diterima' => 'nullable|numeric|min:0',
             'no_referensi_bank' => 'nullable|string|max:100',
             'catatan' => 'nullable|string|max:255',
+            'original_invoice_code' => 'nullable|string|max:100',
         ]);
 
         $user = auth()->user();
@@ -125,6 +126,7 @@ class PosSaleController extends Controller
                 'id_sesi_kasir' => $shift->id_sesi_kasir,
                 'id_acara' => $event?->id_acara,
                 'business_date' => today()->toDateString(),
+                'original_invoice_code' => $data['original_invoice_code'] ?? null,
             ]);
 
             foreach ($lineItems as $li) {
@@ -154,11 +156,11 @@ class PosSaleController extends Controller
             $poinDapat = 0;
             if ($member) {
                 $poinDapat = (int) floor($final / max(1, (float) ($rule->nilai_transaksi ?? 10000)) * (int) ($rule->nilai_poin ?? 1));
-                DB::table('customers')->where('id', $member->id)->update([
-                    'total_spent' => DB::raw('total_spent + ' . $final),
-                    'total_orders' => DB::raw('total_orders + 1'),
-                    'points' => DB::raw('points + ' . $poinDapat),
-                ]);
+                DB::table('customers')->where('id', $member->id)->increment('total_spent', $final);
+                DB::table('customers')->where('id', $member->id)->increment('total_orders');
+                if ($poinDapat > 0) {
+                    DB::table('customers')->where('id', $member->id)->increment('points', $poinDapat);
+                }
                 $fresh = DB::table('customers')->where('id', $member->id)->first();
                 MemberTransaction::create([
                     'id_transaksi_anggota' => IdGen::next(MemberTransaction::class, 'id_transaksi_anggota', 'MTX'),

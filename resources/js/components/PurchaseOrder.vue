@@ -37,6 +37,21 @@
         </div>
       </div>
 
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-[12px] font-semibold text-[#64748b] uppercase tracking-[0.05em] mb-1">METODE PEMBAYARAN</label>
+          <select v-model="form.payment_method" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-3 py-2 text-sm text-[#0f172a] focus:border-[#10b981]">
+            <option value="CASH">TUNAI</option>
+            <option value="DEBIT">DEBIT</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[2px] px-3 py-2">
+            Metode pembayaran PO untuk keperluan catatan internal & pelaporan.
+          </p>
+        </div>
+      </div>
+
       <p v-if="form.tipe_po === 'konsinyasi'" class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[2px] px-3 py-2">
         PO konsinyasi: sisa barang yang tidak terjual otomatis diretur ke vendor saat event ditutup.
       </p>
@@ -47,14 +62,14 @@
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-sm font-semibold text-[#0f172a] uppercase tracking-[0.02em]">DAFTAR ITEM PRODUK</h3>
         <div class="flex items-center gap-2">
-          <button @click="addItemRow()" class="px-3 py-1.5 bg-[#10b981] hover:bg-[#059669] text-white rounded-[2px] text-xs font-semibold">TAMBAH ITEM</button>
+          <button v-if="form.id_pemasok" @click="addItemRow()" class="px-3 py-1.5 bg-[#10b981] hover:bg-[#059669] text-white rounded-[2px] text-xs font-semibold">TARIK DATA</button>
         </div>
       </div>
 
       <table class="w-full text-left border-collapse text-sm mb-4">
         <thead>
           <tr class="border-b border-[#e2e8f0] bg-[#f1f5f9] text-[#64748b] text-[12px] font-semibold uppercase tracking-[0.05em]">
-            <th class="p-3">PRODUK</th>
+            <th class="p-3">PRODUK (MASTER)</th>
             <th class="p-3 w-24">QTY</th>
             <th class="p-3 w-40">HARGA BELI</th>
             <th class="p-3 w-40 text-right">SUBTOTAL</th>
@@ -70,12 +85,12 @@
               </select>
             </td>
             <td class="p-3"><input v-model.number="item.jumlah" type="number" min="1" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-2 py-1.5 text-sm font-mono" /></td>
-            <td class="p-3"><input v-model.number="item.harga" type="number" min="0" placeholder="0" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-2 py-1.5 text-sm font-mono" /></td>
+            <td class="p-3"><input v-model.number="item.harga" type="number" min="0" class="w-full bg-[#ffffff] border border-[#e2e8f0] rounded-[2px] px-2 py-1.5 text-sm font-mono" /></td>
             <td class="p-3 text-right font-mono font-medium">Rp {{ ((item.jumlah || 0) * (item.harga || 0)).toLocaleString() }}</td>
             <td class="p-3 text-right"><button @click="removeItemRow(index)" class="text-[#ef4444] hover:underline text-xs font-semibold">HAPUS</button></td>
           </tr>
           <tr v-if="form.items.length === 0">
-            <td colspan="5" class="p-6 text-center text-[#64748b]">Belum ada item ditambahkan.</td>
+            <td colspan="5" class="p-6 text-center text-[#64748b]">Klik "TARIK DATA" untuk memasukkan produk dari master vendor ini.</td>
           </tr>
         </tbody>
       </table>
@@ -97,39 +112,46 @@
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-sm font-semibold text-[#0f172a] uppercase tracking-[0.02em]">DAFTAR PURCHASE ORDER</h2>
         <div class="flex items-center gap-2">
-          <button v-if="can('manage_po')" @click="exportPo()" class="px-3 py-1.5 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-[2px] text-xs font-semibold">EXPORT PO</button>
+          <button v-if="can('manage_po')" @click="exportPoList()" class="px-3 py-1.5 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-[2px] text-xs font-semibold">EXPORT SEMUA PO</button>
           <button @click="fetchPo()" class="px-3 py-1.5 border border-[#e2e8f0] rounded-[2px] text-xs font-semibold text-[#64748b] hover:bg-[#f1f5f9]">REFRESH</button>
         </div>
       </div>
 
       <table class="w-full text-left border-collapse text-sm">
-        <thead>
+        <thead v-if="poList.length > 0">
           <tr class="border-b border-[#e2e8f0] bg-[#f1f5f9] text-[#64748b] text-[12px] font-semibold uppercase tracking-[0.05em]">
             <th class="p-3">NO PO</th>
+            <th class="p-3">TANGGAL</th>
             <th class="p-3">KODE VENDOR</th>
             <th class="p-3">TIPE</th>
+            <th class="p-3">METODE</th>
             <th class="p-3">EVENT</th>
             <th class="p-3">STATUS</th>
             <th class="p-3">PROGRES TERIMA</th>
             <th class="p-3 text-right">AKSI</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody v-if="poList.length > 0">
           <tr v-for="po in poList" :key="po.id" class="border-b border-[#e2e8f0] hover:bg-[#f1f5f9]">
             <td class="p-3 font-mono text-xs font-semibold text-[#0f172a]">{{ po.po_code }}</td>
+            <td class="p-3 text-[#64748b] text-xs">{{ new Date(po.created_at).toLocaleString() }}</td>
             <td class="p-3 text-[#64748b]">{{ po.vendor?.nama_pemasok || po.id_pemasok }}</td>
             <td class="p-3 text-[#64748b] text-xs uppercase">{{ po.tipe_po }}</td>
+            <td class="p-3 text-[#64748b] text-xs uppercase">{{ po.payment_method }}</td>
             <td class="p-3 font-mono text-xs text-[#64748b]">{{ po.id_acara || '-' }}</td>
             <td class="p-3"><span :class="statusClass(po.status)" class="px-2 py-0.5 rounded-[2px] border text-[11px] font-semibold uppercase">{{ po.status }}</span></td>
             <td class="p-3 font-mono text-xs text-[#64748b]">{{ progressText(po) }}</td>
-            <td class="p-3 text-right whitespace-nowrap">
+            <td class="p-3 text-right">
+              <button @click="showDetail(po)" class="text-[#10b981] hover:underline text-[11px] font-semibold">DETAIL</button>
               <button v-if="po.status === 'draft' && can('approve_po')" @click="approvePo(po)" class="px-2 py-1 bg-[#10b981] hover:bg-[#059669] text-white text-[11px] font-semibold rounded-[2px] mr-2">APPROVE</button>
               <button v-if="['draft','approved','partial'].includes(po.status) && can('manage_po')" @click="cancelPo(po)" class="px-2 py-1 border border-[#ef4444] text-[#ef4444] hover:bg-red-50 text-[11px] font-semibold rounded-[2px] mr-2">BATAL</button>
               <a v-if="can('manage_po') && ['approved','partial'].includes(po.status)" href="/operational/receiving" class="text-[#0f172a] hover:underline text-[11px] font-semibold">TERIMA &rarr;</a>
             </td>
           </tr>
-          <tr v-if="poList.length === 0">
-            <td colspan="7" class="p-6 text-center text-[#64748b]">Belum ada PO.</td>
+        </tbody>
+        <tbody v-else>
+          <tr>
+            <td colspan="9" class="p-10 text-center text-[#64748b] text-sm border-b border-[#e2e8f0]">BELUM ADA PO</td>
           </tr>
         </tbody>
       </table>
@@ -147,6 +169,43 @@
         </div>
       </div>
     </div>
+      <!-- Modal Detail PO -->
+    <div v-if="detailModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="detailModal.show = false">
+      <div class="bg-white rounded-[4px] shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div class="px-5 py-3 border-b border-[#e2e8f0] flex justify-between items-center">
+          <h3 class="text-sm font-bold uppercase text-[#0f172a]">DETAIL ITEM: {{ detailModal.po.po_code }}</h3>
+          <button @click="exportPoDetail(detailModal.po)" class="px-3 py-1 bg-emerald-600 text-white rounded text-[10px]">EXPORT CSV</button>
+          <button @click="detailModal.show = false" class="text-[#64748b] hover:text-[#0f172a]">✕</button>
+          <button @click="exportPoDetail(detailModal.po)" class="px-3 py-1 bg-emerald-600 text-white rounded text-[10px]">EXPORT CSV</button>
+        </div>
+        <div class="p-5 overflow-auto text-sm">
+          <div class="mb-3 text-xs text-[#64748b]">
+            <span class="mr-4">Tanggal: <b class="text-[#0f172a]">{{ new Date(detailModal.po.created_at).toLocaleString() }}</b></span>
+            <span>Metode Pembayaran: <b class="text-[#0f172a] uppercase">{{ detailModal.po.payment_method || 'CASH' }}</b></span>
+          </div>
+          <table class="w-full text-left">
+            <thead>
+              <tr class="text-[#64748b] text-[11px] uppercase">
+                <th class="pb-2">PRODUK</th>
+                <th class="pb-2 text-center">QTY</th>
+                <th class="pb-2 text-right">HARGA</th>
+                <th class="pb-2 text-right">METODE BAYAR</th>
+                <th class="pb-2 text-right">SUBTOTAL</th>
+              </tr>
+            </thead>
+            <tbody>
+            <tr v-for="it in detailModal.po.items" :key="it.id" class="border-t border-[#e2e8f0]">
+              <td class="py-2">{{ it.product?.nama_produk || 'Produk' }}</td>
+              <td class="py-2 text-center">{{ it.qty }}</td>
+              <td class="py-2 text-right font-mono">Rp {{ Number(it.unit_price).toLocaleString() }}</td>
+              <td class="py-2 text-right text-xs uppercase">{{ detailModal.po.payment_method }}</td>
+              <td class="py-2 text-right font-mono font-semibold">Rp {{ Number(it.subtotal || (it.qty * it.unit_price)).toLocaleString() }}</td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -159,9 +218,8 @@ export default {
       vendors: [], products: [], departments: [], subclasses: [], events: [],
       poList: [],
       saving: false,
-      showProductModal: false,
-      modalProduct: { nama_produk: '', id_departemen: '', id_subkelas: '', sku: '', penerbit: '' },
       alert: { show: false, type: 'error', title: '', message: '' },
+      detailModal: { show: false, po: {} },
       form: { id_pemasok: '', id_acara: '', tipe_po: 'reguler', payment_method: 'CASH', tanggal_po: new Date().toISOString().slice(0, 10), items: [] },
     };
   },
@@ -214,13 +272,32 @@ export default {
         this.showAlert(e.response?.data?.message || 'Gagal memuat daftar PO');
       }
     },
-    addItemRow() {
-      this.form.items.push({ id_produk: '', jumlah: 1, harga: 0 });
+    openDetail(po) {
+      this.detailModal = { show: true, po };
     },
-    removeItemRow(i) { this.form.items.splice(i, 1); },
+    addItemRow() {
+      if (!this.form.id_pemasok) return this.showAlert('Pilih vendor terlebih dahulu!');
+      
+      const newItems = this.vendorProducts
+        .filter(p => !this.form.items.some(it => it.id_produk === p.id_produk))
+        .map(p => ({
+          id_produk: p.id_produk,
+          jumlah: 1,
+          harga: Number(p.harga_beli || 0)
+        }));
+
+      if (newItems.length === 0) {
+        return this.showAlert('Semua produk vendor ini sudah ada di daftar.');
+      }
+
+      this.form.items.push(...newItems);
+    },
+    removeItemRow(i) {
+      this.form.items.splice(i, 1);
+    },
     updatePrice(item) {
       const p = this.products.find(x => x.id_produk === item.id_produk);
-      if (p) item.harga = p.harga_beli || p.harga_jual || 0;
+      if (p) item.harga = Number(p.harga_beli || 0);
     },
     validateForm() {
       if (!this.form.id_pemasok) return 'Pilih vendor dulu!';
@@ -259,17 +336,34 @@ export default {
         this.saving = false;
       }
     },
-    async exportPo() {
+    async exportPoList() {
+      if (this.poList.length === 0) {
+        this.showAlert('Tidak ada data PO untuk diexport.');
+        return;
+      }
+      let csv = "no_po,tanggal_dibuat,vendor,tipe_po,metode_pembayaran,status\n";
+      for (const po of this.poList) {
+        csv += `"${po.po_code}","${po.created_at || '-'}","${po.vendor?.nama_pemasok || po.id_pemasok}","${po.tipe_po}","${po.payment_method || 'CASH'}","${po.status}"\n`;
+      }
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'All-Purchase-Orders.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    async exportPoDetail(po) {
       try {
-        const res = await axios.get('/api/export/purchase-orders', { headers: this.headers(), responseType: 'blob' });
+        const res = await axios.get('/api/export/purchase-orders/' + po.id, { headers: this.headers(), responseType: 'blob' });
         const url = URL.createObjectURL(res.data);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'purchase-orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+        a.download = 'PO-' + po.po_code + '.csv';
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {
-        this.showAlert(e.response?.data?.message || 'Gagal export PO');
+        this.showAlert(e.response?.data?.message || 'Gagal export detail PO');
       }
     },
     async approvePo(po) {
@@ -310,6 +404,12 @@ export default {
     },
     showAlert(message, type = 'error') {
       this.alert = { show: true, type, message, title: type === 'error' ? 'PERHATIAN' : 'BERHASIL' };
+    },
+    showDetail(po) {
+      this.detailModal = { show: true, po };
+    },
+    closeDetail() {
+      this.detailModal = { show: false, po: null };
     },
   },
 };

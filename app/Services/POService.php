@@ -16,6 +16,29 @@ class POService
     public function createPo(array $data, ?int $userId = null): PurchaseOrder
     {
         return DB::transaction(function () use ($data, $userId) {
+            // Handle if new_product is provided in items
+            $items = $data['items'] ?? [];
+            foreach ($items as &$item) {
+                if (isset($item['new_product']) && !isset($item['id_produk'])) {
+                    $prodData = $item['new_product'];
+                    $product = Product::create([
+                        'id_produk'     => IdGen::next(Product::class, 'id_produk', 'PRD'),
+                        'nama_produk'   => $prodData['nama_produk'],
+                        'id_departemen' => $prodData['id_departemen'] ?? null,
+                        'id_subkelas'   => $prodData['id_subkelas'] ?? null,
+                        'id_pemasok'    => $data['id_pemasok'],
+                        'penerbit'      => $prodData['penerbit'] ?? 'Penerbit',
+                        'harga_jual'    => $prodData['harga_jual'] ?? 0,
+                        'harga_beli'    => $prodData['harga_beli'] ?? 0,
+                        'harga_pokok'   => $prodData['harga_pokok'] ?? 0,
+                        'sku'           => IdGen::next(Product::class, 'sku', 'SKU'),
+                        'stok'          => 0,
+                    ]);
+                    $item['id_produk'] = $product->id_produk;
+                }
+            }
+            unset($item);
+
             $po = PurchaseOrder::create([
                 'po_code'       => $this->generatePOCode(),
                 'id_pemasok'    => $data['id_pemasok'],
@@ -30,7 +53,7 @@ class POService
             ]);
 
             $total = 0;
-            foreach ($data['items'] as $item) {
+            foreach ($items as $item) {
                 $subtotal = $item['qty'] * $item['unit_price'];
                 $total += $subtotal;
                 PoItem::create([
