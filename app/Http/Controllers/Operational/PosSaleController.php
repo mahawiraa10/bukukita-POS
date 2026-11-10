@@ -146,6 +146,8 @@ class PosSaleController extends Controller
             Payment::create([
                 'sale_id' => $sale->id,
                 'amount' => $final,
+                'tendered_amount' => $data['metode_bayar'] === 'TUNAI' ? round((float) $data['uang_diterima'], 2) : $final,
+                'change_amount' => $kembali,
                 'payment_method' => $sale->payment_method,
                 'transaction_id' => $data['no_referensi_bank'] ?? null,
                 'status' => 'success',

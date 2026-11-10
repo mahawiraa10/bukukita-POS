@@ -61,11 +61,12 @@
     <tr class="total"><td>TOTAL</td><td class="r">Rp {{ number_format($sale->final_amount, 0, ',', '.') }}</td></tr>
     @php
       $metode = strtoupper($sale->payment_method);
-      $kembali = 0;
-      $dibayar = $sale->payment?->amount ?? $sale->final_amount;
-      if ($metode === 'CASH' || $metode === 'TUNAI') {
-        $kembali = max(0, $dibayar - $sale->final_amount);
-      }
+      $isTunai = in_array($metode, ['CASH', 'TUNAI']);
+      $tendered = $sale->payment?->tendered_amount;
+      $dibayar = $tendered !== null ? (float) $tendered : (float) ($sale->payment?->amount ?? $sale->final_amount);
+      $kembali = $sale->payment?->change_amount !== null
+        ? (float) $sale->payment->change_amount
+        : ($isTunai ? max(0, $dibayar - (float) $sale->final_amount) : 0);
     @endphp
     <tr><td>Metode Bayar</td><td class="r">{{ $metode }}</td></tr>
     @if($metode === 'CASH' || $metode === 'TUNAI')
