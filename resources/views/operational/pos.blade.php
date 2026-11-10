@@ -135,9 +135,76 @@
     </div>
   </div>
 
+
+  <div id="pos-alert-modal" class="hidden fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4">
+    <div class="bg-white rounded-sm w-full max-w-sm shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="flex items-start gap-4 p-6">
+        <div id="pos-alert-icon" class="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-lg font-bold bg-amber-100 text-amber-600">!</div>
+        <div class="flex-1 min-w-0 pt-0.5">
+          <h3 id="pos-alert-title" class="text-sm font-bold text-slate-900 uppercase tracking-tight">Perhatian</h3>
+          <div id="pos-alert-message" class="text-xs text-slate-600 mt-1.5 leading-relaxed space-y-1"></div>
+        </div>
+      </div>
+      <div class="px-6 pb-5 flex gap-2">
+        <button id="pos-alert-ok" onclick="closePosAlert()" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-sm font-bold text-[11px] uppercase tracking-wider transition-all">Mengerti (Enter)</button>
+      </div>
+    </div>
+  </div>
   </main>
 
   <script>
+
+    // ---- POS Alert Modal (pengganti alert() bawaan browser) ----
+    const POS_ALERT_STYLES = {
+        warning: { wrap: 'bg-amber-100 text-amber-600', glyph: '!' },
+        error:   { wrap: 'bg-rose-100 text-rose-600',   glyph: '✕' },
+        success: { wrap: 'bg-emerald-100 text-emerald-600', glyph: '✓' },
+        info:    { wrap: 'bg-slate-100 text-slate-600', glyph: 'i' }
+    };
+
+
+    function showPosAlert(message, opts = {}) {
+        const type = opts.type || 'warning';
+        const style = POS_ALERT_STYLES[type] || POS_ALERT_STYLES.warning;
+        const modal = document.getElementById('pos-alert-modal');
+        const icon = document.getElementById('pos-alert-icon');
+
+        document.getElementById('pos-alert-title').textContent = opts.title || 'Perhatian';
+        const msgEl = document.getElementById('pos-alert-message');
+        msgEl.innerHTML = String(message)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .split('\n').map(l => l.trim()).filter(l => l.length)
+            .map(l => '<div>' + l + '</div>').join('');
+        icon.className = 'w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-lg font-bold ' + style.wrap;
+        icon.textContent = style.glyph;
+
+        window._posAlertFocus = opts.focus || null;
+        window._posAlertOnClose = opts.onClose || null;
+        modal.classList.remove('hidden');
+        setTimeout(() => document.getElementById('pos-alert-ok').focus(), 30);
+    }
+
+    function closePosAlert() {
+        document.getElementById('pos-alert-modal').classList.add('hidden');
+        const cb = window._posAlertOnClose;
+        const target = window._posAlertFocus;
+        window._posAlertOnClose = null;
+        window._posAlertFocus = null;
+        if (typeof cb === 'function') { cb(); return; }
+        if (target) {
+            const el = document.getElementById(target);
+            if (el) { el.focus(); el.select && el.select(); return; }
+        }
+        document.getElementById('product-search')?.focus();
+    }
+
+    // Enter = OK, Escape = tutup
+    window.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('pos-alert-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); closePosAlert(); }
+        }
+    });
 
     function closeSuccessModal() {
         document.getElementById('success-payment-modal').classList.add('hidden');
@@ -149,7 +216,7 @@
         if (id) {
             window.open('/receipt/' + encodeURIComponent(id), '_blank', 'width=320,height=640');
         } else {
-            alert('ID transaksi tidak ditemukan.');
+            showPosAlert('ID transaksi tidak ditemukan.', { title: 'Struk Gagal', type: 'error' });
         }
     }
 
@@ -162,7 +229,7 @@
     
 
     async function confirmPaymentDirect() {
-        if (!cart.length) { alert('Keranjang kosong'); return; }
+        if (!cart.length) { showPosAlert('Belum ada buku di keranjang. Scan dulu ISBN-nya.', { title: 'Keranjang Kosong', type: 'warning' }); return; }
         
         const subtotal = cart.reduce((sum, i) => sum + (i.price * i.qty) - ((i.price * i.qty) * (i.discount / 100)), 0);
         const globalDiscount = parseFloat(document.getElementById('global-discount-input')?.value) || 0;
@@ -170,9 +237,26 @@
         const tender = parseFloat(document.getElementById('main-cash-tender')?.value) || 0;
         const metode = document.getElementById('main-payment-method').value;
 
-        if (metode === 'TUNAI' && tender < total) {
-            alert('Uang bayar kurang dari total belanja!');
-            return;
+        if (metode === 'TUNAI') {
+            if (!tender || tender <= 0) {
+                showPosAlert('Kolom Cash Tender masih kosong. Isi nominal uang tunai yang diterima dari pembeli.', {
+                    title: 'Cash Tender Belum Diisi',
+                    type: 'warning',
+                    focus: 'main-cash-tender'
+                });
+                return;
+            }
+            if (tender < total) {
+                const kurang = total - tender;
+                showPosAlert(
+                    'Uang tunai yang diterima KURANG dari total belanja.\n\n' +
+                    'Total Belanja : ' + fmt(total) + '\n' +
+                    'Uang Diterima : ' + fmt(tender) + '\n' +
+                    'Kurang        : ' + fmt(kurang),
+                    { title: 'Pembayaran Kurang', type: 'error', focus: 'main-cash-tender' }
+                );
+                return;
+            }
         }
 
         const payload = {
@@ -206,7 +290,7 @@
             if(document.getElementById('member-display')) document.getElementById('member-display').textContent = '';
             renderCart();
             loadProducts();
-        } catch (e) { alert(e.message); }
+        } catch (e) { showPosAlert(e.message, { title: 'Transaksi Gagal', type: 'error' }); }
     }
 
     function openRegisterModal() {
@@ -228,13 +312,13 @@
             });
             const d = await res.json();
             if (!res.ok) throw new Error(d.message);
-            alert('Member berhasil didaftarkan!');
+            showPosAlert('Member baru berhasil didaftarkan dan langsung terhubung ke transaksi ini.', { title: 'Member Terdaftar', type: 'success' });
             document.getElementById('member-register-modal').classList.add('hidden');
             // Auto-select the new member
             document.getElementById('member-search').value = data.phone;
             // Trigger search
             searchMember({ key: 'Enter', target: { value: data.phone } });
-        } catch(e) { alert(e.message); }
+        } catch(e) { showPosAlert(e.message, { title: 'Gagal Daftar Member', type: 'error' }); }
     }
 
     async function searchMember(e) {
@@ -250,9 +334,9 @@
                     const m = d.data[0];
                     document.getElementById('selected-member-id').value = m.id_anggota;
                     document.getElementById('member-display').textContent = m.name;
-                    alert('Member ditemukan: ' + m.name);
+                    showPosAlert('Member ditemukan: ' + m.name + ' (' + m.phone + ')', { title: 'Member Ditemukan', type: 'success' });
                 } else {
-                    alert('Member tidak ditemukan');
+                    showPosAlert('Tidak ada member dengan No. HP / nama tersebut. Klik tombol "Daftar" untuk membuat member baru.', { title: 'Member Tidak Ditemukan', type: 'warning' });
                     document.getElementById('selected-member-id').value = '';
                     document.getElementById('member-display').textContent = '';
                 }
@@ -341,7 +425,7 @@
 
       if (p) {
         if ((p.stok || 0) <= 0) {
-          alert(`Stok produk "${p.nama_produk}" habis!`);
+          showPosAlert('Stok produk "' + p.nama_produk + '" habis. Lakukan penerimaan barang dulu.', { title: 'Stok Habis', type: 'error' });
           return;
         }
         addToCart(p.id_produk, p.nama_produk, p.harga_jual, p.stok || 0, p.sku || p.kode_produk || '', p.isbn || '');
@@ -357,7 +441,7 @@
 
         document.getElementById('product-search').value = '';
       } else {
-        alert(`Produk dengan kode/nama "${val}" tidak ditemukan!`);
+        showPosAlert('Produk dengan kode / nama "' + val + '" tidak ditemukan.', { title: 'Produk Tidak Ditemukan', type: 'warning' });
       }
     }
 
@@ -381,7 +465,7 @@
     function addToCart(id, name, price, stock, sku='', isbn='') {
       const existing = cart.find(item => item.id === id);
       if (existing) {
-        if (existing.qty >= stock) { alert('Stok tidak mencukupi'); return; }
+        if (existing.qty >= stock) { showPosAlert('Stok tidak mencukupi untuk jumlah tersebut.', { title: 'Stok Kurang', type: 'error' }); return; }
         existing.qty++;
       } else {
         cart.push({ id, name, price, qty: 1, discount: 0, stock, sku, isbn });
@@ -398,7 +482,7 @@
         return;
       }
       if (newQty > item.stock) {
-        alert('Stok tidak mencukupi (Max: ' + item.stock + ')');
+        showPosAlert('Stok tidak mencukupi. Maksimal: ' + item.stock + ' unit.', { title: 'Stok Kurang', type: 'error' });
         item.qty = item.stock;
         renderCart();
         return;
@@ -495,92 +579,6 @@
       updateMainUI();
     }
 
-    function processPayment() {
-      if (!cart.length) { alert('Keranjang kosong'); return; }
-      const globalDiscount = parseFloat(document.getElementById('global-discount-input')?.value) || 0;
-      const subtotal = cart.reduce((sum, i) => sum + (i.price * i.qty) - ((i.price * i.qty) * (i.discount / 100)), 0);
-      const total = subtotal - globalDiscount;
-      
-      document.getElementById('modal-subtotal').textContent = fmt(subtotal);
-      document.getElementById('modal-discount').textContent = fmt(globalDiscount);
-      document.getElementById('modal-total').textContent = fmt(total);
-      const mainTender = parseFloat(document.getElementById('main-cash-tender')?.value);
-      document.getElementById('modal-bayar').value = !isNaN(mainTender) && mainTender > 0 ? mainTender : total;
-      document.getElementById('modal-kembalian').textContent = fmt(0);
-      document.getElementById('payment-modal').classList.remove('hidden');
-      document.getElementById('modal-bayar').focus();
-    }
-
-    function togglePayInput() {
-      const m = document.getElementById('modal-metode').value;
-      const wBayar = document.getElementById('wrapper-bayar');
-      const wRef = document.getElementById('wrapper-ref');
-      const subtotal = cart.reduce((sum, i) => sum + (i.price * i.qty) - ((i.price * i.qty) * (i.discount / 100)), 0);
-      const total = subtotal - (parseFloat(document.getElementById('global-discount-input')?.value) || 0);
-      
-      if (m === 'DEBIT') {
-        wBayar.classList.add('hidden');
-        wRef.classList.remove('hidden');
-        const mainTender = parseFloat(document.getElementById('main-cash-tender')?.value);
-      document.getElementById('modal-bayar').value = !isNaN(mainTender) && mainTender > 0 ? mainTender : total;
-        document.getElementById('modal-kembalian').textContent = fmt(0);
-      } else {
-        wBayar.classList.remove('hidden');
-        wRef.classList.add('hidden');
-        const mainTender = parseFloat(document.getElementById('main-cash-tender')?.value);
-      document.getElementById('modal-bayar').value = !isNaN(mainTender) && mainTender > 0 ? mainTender : total;
-        calculateChange();
-      }
-    }
-
-    function calculateChange() {
-      const subtotal = cart.reduce((sum, i) => sum + (i.price * i.qty) - ((i.price * i.qty) * (i.discount / 100)), 0);
-      const total = subtotal - (parseFloat(document.getElementById('global-discount-input')?.value) || 0);
-      const bayar = parseFloat(document.getElementById('modal-bayar').value) || 0;
-      const kembalian = bayar - total;
-      document.getElementById('modal-kembalian').textContent = fmt(kembalian >= 0 ? kembalian : 0);
-    }
-
-    function closeModal() {
-      document.getElementById('payment-modal').classList.add('hidden');
-    }
-
-    async function confirmPayment() {
-      const subtotal = cart.reduce((sum, i) => sum + (i.price * i.qty) - ((i.price * i.qty) * (i.discount / 100)), 0); const total = subtotal - (parseFloat(document.getElementById('global-discount-input')?.value) || 0);
-      const metode = document.getElementById('modal-metode').value;
-      const bayar = parseFloat(document.getElementById('modal-bayar').value) || 0;
-      const ref = document.getElementById('modal-ref').value;
-
-      if (metode === 'TUNAI' && bayar < total) {
-        alert('Uang bayar kurang dari total belanja!');
-        return;
-      }
-
-      const payload = {
-            id_anggota: document.getElementById('selected-member-id').value || null,
-        items: cart.map(i => ({ id_produk: i.id, qty: i.qty })),
-        metode_bayar: metode,
-        uang_diterima: metode === 'TUNAI' ? bayar : total,
-        no_referensi_bank: metode === 'DEBIT' ? ref : null
-      };
-
-      try {
-        const res = await fetch('/api/pos/sales', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const d = await res.json();
-        if (!res.ok) throw new Error(d.message || 'Gagal simpan transaksi');
-        
-        alert("Transaksi Berhasil!\nMetode: " + metode + "\nInvoice: " + d.sale.invoice_code + "\nKembalian: " + fmt(metode === 'TUNAI' ? bayar - total : 0));
-        cart.length = 0;
-        renderCart();
-        closeModal();
-        loadProducts();
-      } catch (e) { alert(e.message); }
-    }
-
     function logout() {
       fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' } }).catch(()=>{});
       localStorage.clear();
@@ -607,9 +605,9 @@
     }
 
     async function showRefundModal(invoice) {
-      if (!['owner', 'supervisor'].includes(user.role?.name)) { alert('Hanya Supervisor/Owner yang dapat melakukan refund.'); return; }
+      if (!['owner', 'supervisor'].includes(user.role?.name)) { showPosAlert('Hanya Supervisor / Owner yang dapat melakukan refund.', { title: 'Akses Ditolak', type: 'error' }); return; }
       const res = await fetch('/api/sales/' + encodeURIComponent(invoice), { headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' } });
-      if (!res.ok) { alert('Nota tidak ditemukan'); return; }
+      if (!res.ok) { showPosAlert('Nota dengan kode invoice tersebut tidak ditemukan.', { title: 'Nota Tidak Ditemukan', type: 'warning' }); return; }
       const d = await res.json();
       activeSale = invoice;
       document.getElementById('refund-invoice').textContent = invoice;
@@ -639,7 +637,7 @@
 
     async function submitRefund() {
       const items = [...document.querySelectorAll('.refund-chk:checked')].map(c => ({ id_produk: c.value, qty: parseInt(c.dataset.qty) }));
-      if (!items.length) { alert('Pilih minimal satu item untuk direfund.'); return; }
+      if (!items.length) { showPosAlert('Pilih minimal satu item yang mau direfund.', { title: 'Item Belum Dipilih', type: 'warning' }); return; }
       try {
         const res = await fetch('/api/refunds', {
           method: 'POST',
@@ -648,10 +646,10 @@
         });
         const d = await res.json();
         if (!res.ok) throw new Error(d.message || 'Refund gagal');
-        alert('Refund berhasil. Nilai: ' + fmt(d.nilai_refund));
+        showPosAlert('Refund berhasil diproses.\n\nNilai refund: ' + fmt(d.nilai_refund), { title: 'Refund Berhasil', type: 'success' });
         document.getElementById('refund-modal').classList.add('hidden');
         loadProducts();
-      } catch (e) { alert(e.message); }
+      } catch (e) { showPosAlert(e.message, { title: 'Refund Gagal', type: 'error' }); }
     }
 
     // Init
@@ -685,7 +683,7 @@
         const d = await res.json();
         if (!res.ok) throw new Error(d.message || 'Gagal buka shift');
         location.reload(); // Refresh halaman agar state shift baru langsung aktif
-      } catch (e) { alert(e.message); }
+      } catch (e) { showPosAlert(e.message, { title: 'Shift Bermasalah', type: 'error' }); }
     }
 
     function openCloseShiftModal() {
@@ -695,7 +693,7 @@
 
     async function submitCloseShift() {
       const uang_fisik = document.getElementById('shift-uang-fisik').value;
-      if (!uang_fisik) return alert('Masukkan uang fisik!');
+      if (!uang_fisik) return showPosAlert('Isi dulu nominal uang fisik yang ada di laci sebelum menutup shift.', { title: 'Uang Fisik Kosong', type: 'warning' });
       try {
         const res = await fetch('/api/shifts/close', {
           method: 'POST',
@@ -704,60 +702,13 @@
         });
         const d = await res.json();
         if (!res.ok) throw new Error(d.message || 'Gagal tutup shift');
-        alert(`Shift ditutup.\nSelisih: ${fmt(d.selisih)}\nUang diharapkan: ${fmt(d.expected_cash)}`);
-        logout();
-      } catch (e) { alert(e.message); }
+        showPosAlert('Shift berhasil ditutup.\n\nUang diharapkan: ' + fmt(d.expected_cash) + '\nSelisih: ' + fmt(d.selisih) + '\n\nAnda akan logout otomatis.', { title: 'Shift Ditutup', type: 'success', onClose: () => logout() });
+      } catch (e) { showPosAlert(e.message, { title: 'Gagal Tutup Shift', type: 'error' }); }
     }
 
     checkShift();
 
   </script>
-
-  <!-- Modal Pembayaran -->
-  <div id="payment-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
-    <div class="bg-white border border-slate-300 rounded-sm p-6 w-96 shadow-2xl shadow-slate-200">
-      <h3 class="text-lg font-bold text-slate-900 mb-4">Pembayaran</h3>
-      <div class="space-y-4">
-        <div class="space-y-2 border-b border-slate-300 pb-4 mb-2">
-          <div class="flex justify-between items-center text-slate-600">
-            <span>Subtotal</span>
-            <span id="modal-subtotal" class="font-mono text-slate-900">Rp 0</span>
-          </div>
-          <div class="flex justify-between items-center text-slate-600">
-            <span>Diskon</span>
-            <span id="modal-discount" class="font-mono text-rose-700">Rp 0</span>
-          </div>
-        </div>
-        <div class="flex justify-between items-center text-slate-600">
-          <span class="font-bold text-slate-900">Total Akhir</span>
-          <span id="modal-total" class="font-mono text-emerald-700 font-bold text-lg">Rp 0</span>
-        </div>
-        <div>
-          <label class="text-xs text-slate-500 uppercase">Metode Pembayaran</label>
-          <select id="modal-metode" onchange="togglePayInput()" class="w-full bg-slate-50 border border-slate-300 rounded-sm px-4 py-2 text-slate-900 text-sm mt-1 focus:outline-none focus:border-emerald-600">
-            <option value="TUNAI">TUNAI</option>
-            <option value="DEBIT">DEBIT</option>
-          </select>
-        </div>
-        <div id="wrapper-bayar">
-          <label class="text-xs text-slate-500 uppercase">Uang Dibayar</label>
-          <input type="number" id="modal-bayar" oninput="calculateChange()" class="w-full bg-slate-50 border border-slate-300 rounded-sm px-4 py-2 text-slate-900 mono text-sm mt-1">
-        </div>
-        <div id="wrapper-ref" class="hidden">
-          <label class="text-xs text-slate-500 uppercase">No. Referensi / Reff Bank</label>
-          <input type="text" id="modal-ref" class="w-full bg-slate-50 border border-slate-300 rounded-sm px-4 py-2 text-slate-900 mono text-sm mt-1" placeholder="cth: 987654321">
-        </div>
-        <div class="flex justify-between items-center text-slate-600">
-          <span>Kembalian</span>
-          <span id="modal-kembalian" class="font-mono text-emerald-700">Rp 0</span>
-        </div>
-      </div>
-      <div class="mt-6 flex gap-3">
-        <button onclick="closeModal()" class="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 py-2 rounded-sm text-sm">Batal</button>
-        <button onclick="confirmPayment()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-sm text-sm font-bold">Bayar</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Modal Histori Transaksi -->
   <div id="history-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-white/90 backdrop-blur-md p-4">
