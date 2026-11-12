@@ -23,43 +23,55 @@
       <span class="text-xs font-mono text-[#64748b] shrink-0">Total: {{ products.length }} produk</span>
     </div>
 
-    <!-- Grid Produk (gaya e-commerce) -->
-    <div v-if="loading" class="py-16 text-center text-[#64748b] font-mono text-sm">Memuat data...</div>
+    <!-- Tabel Katalog Produk (Noirish Standard) -->
+    <div v-if="loading" class="py-16 text-center text-[#64748b] font-mono text-sm bg-white border border-[#e2e8f0] rounded-[4px]">Memuat data...</div>
 
     <div v-else-if="products.length === 0" class="bg-white border border-[#e2e8f0] rounded-[4px] py-16 text-center text-[#64748b] text-sm">
       Tidak ada produk ditemukan.
     </div>
 
-    <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      <button
-        v-for="p in products" :key="p.id_produk"
-        @click="openDetail(p)"
-        class="group text-left bg-white border border-[#e2e8f0] rounded-[4px] overflow-hidden hover:border-[#10b981] hover:shadow-[0_4px_12px_rgb(0_0_0/0.06)] transition-all flex flex-col"
-      >
-        <!-- Cover -->
-        <div class="relative w-full aspect-[3/4] bg-[#f8fafc] border-b border-[#e2e8f0] overflow-hidden">
-          <img v-if="p.foto_produk" :src="p.foto_produk" :alt="p.nama_produk"
-               class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-200"
-               loading="lazy" @error="p.foto_produk = ''" />
-          <div v-else class="w-full h-full flex items-center justify-center text-[#cbd5e1]">
-            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          </div>
-          <!-- Badge stok -->
-          <span v-if="p.stok <= 0" class="absolute top-2 left-2 px-2 py-0.5 rounded-[2px] text-[10px] font-bold uppercase bg-[#ef4444] text-white">Habis</span>
-          <span v-else-if="p.stok <= (p.min_stock || 0)" class="absolute top-2 left-2 px-2 py-0.5 rounded-[2px] text-[10px] font-bold uppercase bg-[#f59e0b] text-white">Stok Tipis</span>
-        </div>
-
-        <!-- Info -->
-        <div class="p-3 flex flex-col gap-1.5 flex-1">
-          <p class="text-[10px] font-mono text-[#94a3b8] uppercase">{{ p.sku }}</p>
-          <p class="text-sm text-[#0f172a] font-semibold leading-snug line-clamp-2 min-h-[2.5rem]">{{ p.nama_produk }}</p>
-          <p class="text-[11px] text-[#64748b] truncate">{{ p.penerbit || '-' }}</p>
-          <div class="mt-auto pt-2 flex items-end justify-between gap-2">
-            <span class="font-mono text-sm font-bold text-[#10b981]">Rp {{ (p.harga_jual || 0).toLocaleString() }}</span>
-            <span class="font-mono text-[11px] text-[#64748b]">stok {{ p.stok }}</span>
-          </div>
-        </div>
-      </button>
+    <div v-else class="bg-white border border-[#e2e8f0] rounded-[4px] overflow-hidden shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] font-semibold uppercase text-[10px] tracking-wider">
+              <th class="py-3 px-4 w-12 text-center">NO</th>
+              <th class="py-3 px-4">KODE / SKU</th>
+              <th class="py-3 px-4">NAMA PRODUK</th>
+              <th class="py-3 px-4">PENERBIT</th>
+              <th class="py-3 px-4">HIERARKI</th>
+              <th class="py-3 px-4 text-right">HARGA JUAL</th>
+              <th class="py-3 px-4 text-center">STOK</th>
+              <th class="py-3 px-4 text-center w-24">AKSI</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#e2e8f0]">
+            <tr v-for="(p, i) in products" :key="p.id_produk" class="hover:bg-[#f8fafc] transition-colors">
+              <td class="py-3 px-4 text-center font-mono text-[#94a3b8]">{{ i + 1 }}</td>
+              <td class="py-3 px-4 font-mono font-semibold text-[#0f172a]">
+                <div>{{ p.sku || p.id_produk }}</div>
+                <div v-if="p.isbn" class="text-[10px] text-[#94a3b8]">ISBN: {{ p.isbn }}</div>
+              </td>
+              <td class="py-3 px-4 font-semibold text-[#0f172a]">
+                <div class="flex items-center gap-2">
+                  <span>{{ p.nama_produk }}</span>
+                  <span v-if="p.stok <= 0" class="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-[2px] bg-[#ef4444] text-white">Habis</span>
+                  <span v-else-if="p.stok <= (p.min_stock || 0)" class="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-[2px] bg-[#f59e0b] text-white">Tipis</span>
+                </div>
+              </td>
+              <td class="py-3 px-4 text-[#64748b]">{{ p.penerbit || '-' }}</td>
+              <td class="py-3 px-4 text-[#64748b] text-[11px] max-w-[200px] truncate" :title="hierarki(p)">{{ hierarki(p) }}</td>
+              <td class="py-3 px-4 text-right font-mono font-bold text-[#10b981]">Rp {{ (p.harga_jual || 0).toLocaleString('id-ID') }}</td>
+              <td class="py-3 px-4 text-center font-mono font-semibold text-[#0f172a]">{{ p.stok }}</td>
+              <td class="py-3 px-4 text-center">
+                <button @click="openDetail(p)" class="px-2.5 py-1 text-[11px] font-bold uppercase border border-[#e2e8f0] rounded-[2px] bg-white text-[#0f172a] hover:bg-[#0f172a] hover:text-white transition-colors">
+                  Detail
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Modal Filter Hierarki -->
