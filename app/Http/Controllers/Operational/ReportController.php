@@ -185,27 +185,31 @@ class ReportController extends Controller
             ['Kode Divisi', 'Divisi', 'Departemen', 'Qty', 'Omzet'], $rows);
     }
 
-    // ===== 8. Omzet per Kasir =====
+    // ===== 8. Omzet per Kasir (detail transaksi: produk, metode pembayaran) =====
     public function omzetKasir(Request $r)
     {
         [$dari, $sampai] = $this->period($r);
         $rowsRaw = DB::table('sales')
             ->join('users', 'users.id', '=', 'sales.user_id')
+            ->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'products.id_produk', '=', 'sale_items.id_produk')
             ->whereBetween(DB::raw('DATE(sales.sale_date)'), [$dari, $sampai])
             ->where('sales.payment_status', 'paid')
-            ->groupBy('users.id', 'users.name')
-            ->selectRaw('users.name, COUNT(*) nota, SUM(sales.final_amount) omzet, SUM(sales.discount) diskon')
-            ->orderByDesc('omzet')->get();
+            ->select('sales.invoice_code', 'users.name as kasir', 'products.nama_produk', 'sale_items.qty', 'sales.payment_method', 'sale_items.subtotal')
+            ->orderByDesc('sales.sale_date')
+            ->orderBy('sales.invoice_code')
+            ->get();
         $rows = $rowsRaw->map(fn ($x) => [
-            $x->name, (string) $x->nota,
-            number_format((float) $x->omzet, 0, '', ''), number_format((float) $x->diskon, 0, '', ''),
+            $x->invoice_code, $x->kasir, $x->nama_produk, (string) $x->qty,
+            strtoupper($x->payment_method ?? '-'), number_format((float) $x->subtotal, 0, '', ''),
         ]);
         $rekap = [
-            ['Total Kasir Aktif', (string) count($rowsRaw)],
-            ['Omzet Bersih', number_format((float) $rowsRaw->sum('omzet'), 0, '', '')],
+            ['Total Omzet Bersih', number_format((float) $rowsRaw->sum('subtotal'), 0, '', '')],
+            ['Omzet Tunai', number_format((float) $rowsRaw->where('payment_method', 'cash')->sum('subtotal'), 0, '', '')],
+            ['Omzet Debit', number_format((float) $rowsRaw->where('payment_method', 'debit')->sum('subtotal'), 0, '', '')],
         ];
-        return $this->respond($r, 'OMSET PER KASIR', $dari, $sampai, $rekap,
-            ['Kasir', 'Jumlah Nota', 'Omzet Bersih', 'Total Diskon'], $rows);
+        return $this->respond($r, 'OMSET PER KASIR (DETAIL TRANSAKSI)', $dari, $sampai, $rekap,
+            ['Invoice', 'Kasir', 'Produk', 'Qty', 'Metode', 'Total'], $rows);
     }
 
     // ===== 9. New Loyalty Member =====
